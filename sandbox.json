@@ -1,6 +1,7 @@
 {
   "network": {
     "allowedDomains": [
+      "github.com",
       "dev.algorand.co"
     ],
     "deniedDomains": []
