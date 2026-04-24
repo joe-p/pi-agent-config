@@ -1,0 +1,8 @@
+{
+  "network": {
+    "allowedDomains": [
+      "dev.algorand.co"
+    ],
+    "deniedDomains": []
+  }
+}
