@@ -11,7 +11,16 @@ import type {
 import { Key } from "@mariozechner/pi-tui";
 
 // Tools
-const PLAN_MODE_TOOLS = ["read", "bash", "grep", "find", "ls", "questionnaire"];
+const PLAN_MODE_TOOLS = [
+  "read",
+  "bash",
+  "grep",
+  "find",
+  "ls",
+  "questionnaire",
+  "web_search",
+  "web_fetch",
+];
 const NORMAL_MODE_TOOLS = ["read", "bash", "edit", "write"];
 
 // Destructive commands blocked in plan mode
