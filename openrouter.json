@@ -4,5 +4,11 @@
     "allow_fallbacks": false,
     "zdr": true,
     "data_collection": "deny"
+  },
+  "moonshotai/kimi-k2.6": {
+    "order": ["deepinfra/fp4", "atlas-cloud/int4", "parasail/int4"],
+    "allow_fallbacks": false,
+    "zdr": true,
+    "data_collection": "deny"
   }
 }
