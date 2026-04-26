@@ -3,5 +3,8 @@
   "defaultProvider": "openrouter",
   "defaultModel": "moonshotai/kimi-k2.6",
   "defaultThinkingLevel": "medium",
-  "theme": "catppuccin-macchiato"
+  "theme": "catppuccin-macchiato",
+  "compaction": {
+    "enabled": false
+  }
 }
