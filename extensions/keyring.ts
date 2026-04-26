@@ -8,18 +8,11 @@ export default function (pi: ExtensionAPI) {
     const provider = "openrouter";
     const currentKey = await ctx.modelRegistry.authStorage.getApiKey(provider);
 
-    if (currentKey) {
-      ctx.ui.notify(
-        `${provider} already has an API key. Skipping keyring`,
-        "warning",
-      );
-    }
-
     const providerKey = "openrouter/default";
 
     const entry = new Entry(SERVICE, providerKey);
 
-    if (!entry.getPassword()) {
+    if (!currentKey && !entry.getPassword()) {
       const userInput = await ctx.ui.input(`${provider} API key`);
 
       if (userInput === undefined) {
