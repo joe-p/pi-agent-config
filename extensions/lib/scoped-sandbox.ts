@@ -10,6 +10,7 @@ const BASE_CONFIG: SandboxRuntimeConfig = {
     deniedDomains: [],
   },
   filesystem: {
+    allowRead: ["."],
     denyRead: ["~/.ssh", "*.env", "*.pem", "*.key"],
     allowWrite: [],
     denyWrite: [],
