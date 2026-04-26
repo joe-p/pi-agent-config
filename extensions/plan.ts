@@ -21,7 +21,7 @@ const PLAN_MODE_TOOLS = [
   "web_search",
   "web_fetch",
 ];
-const NORMAL_MODE_TOOLS = ["read", "bash", "edit", "write"];
+const NORMAL_MODE_TOOLS = [...PLAN_MODE_TOOLS, "edit"];
 
 // Destructive commands blocked in plan mode
 const DESTRUCTIVE_PATTERNS = [
