@@ -1,4 +1,5 @@
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
+import { SandboxManager } from "@anthropic-ai/sandbox-runtime";
 import { ScopedSandbox } from "../lib/scoped-sandbox";
 
 await ScopedSandbox.initialize();
@@ -32,6 +33,115 @@ describe("ScopedSandbox", () => {
         `ScopedSandbox: shutdown has been blocked due to "alwaysDeny: true" in "shutdown" configuration`,
       );
     });
+
+    it("should throw when ScopedSandbox is not initialized", async () => {
+      const original = ScopedSandbox.initialized;
+      ScopedSandbox.initialized = false;
+      const freshSb = new ScopedSandbox({ alwaysDeny: false });
+      try {
+        await expect(freshSb.getWrappedCommand("echo hi")).rejects.toThrow(
+          "Must call ScopedSandbox.initialize first!",
+        );
+      } finally {
+        ScopedSandbox.initialized = original;
+      }
+    });
+
+    it("should use default config when no scoped command matches", async () => {
+      const freshSb = new ScopedSandbox({ alwaysDeny: false });
+      const command = await freshSb.getWrappedCommand("echo hello");
+      expect(command).toMatch("echo hello");
+    });
+
+    it("should throw with default config when alwaysDeny is true and no scoped match", async () => {
+      const freshSb = new ScopedSandbox({ alwaysDeny: true });
+      await expect(freshSb.getWrappedCommand("echo hello")).rejects.toThrow(
+        `ScopedSandbox: echo hello has been blocked due to "alwaysDeny: true" in "default" configuration`,
+      );
+    });
+
+    it("should pass preWrapHook result to wrapWithSandbox", async () => {
+      const freshSb = new ScopedSandbox({ alwaysDeny: false });
+      freshSb.scopedCommands["npm"] = {
+        alwaysDeny: false,
+        preWrapHook: async (cmd) => cmd.replace("npm", "pnpm"),
+      };
+      const spy = vi
+        .spyOn(SandboxManager, "wrapWithSandbox")
+        .mockResolvedValue("wrapped");
+      try {
+        await freshSb.getWrappedCommand("npm install");
+        expect(spy).toHaveBeenCalledWith("pnpm install", undefined, {});
+      } finally {
+        spy.mockRestore();
+      }
+    });
+
+    it("should pass runtimeConfig to wrapWithSandbox", async () => {
+      const freshSb = new ScopedSandbox({ alwaysDeny: false });
+      freshSb.scopedCommands["test"] = {
+        alwaysDeny: false,
+        runtimeConfig: {
+          filesystem: {
+            allowRead: ["/tmp"],
+            denyRead: [],
+            allowWrite: [],
+            denyWrite: [],
+          },
+        },
+      };
+      const spy = vi
+        .spyOn(SandboxManager, "wrapWithSandbox")
+        .mockResolvedValue("wrapped");
+      try {
+        await freshSb.getWrappedCommand("test cmd");
+        expect(spy).toHaveBeenCalledWith("test cmd", undefined, {
+          filesystem: {
+            allowRead: ["/tmp"],
+            denyRead: [],
+            allowWrite: [],
+            denyWrite: [],
+          },
+        });
+      } finally {
+        spy.mockRestore();
+      }
+    });
+
+    it("should allow preWrapHook to mutate runtimeConfig", async () => {
+      const freshSb = new ScopedSandbox({ alwaysDeny: false });
+      freshSb.scopedCommands["mutate"] = {
+        alwaysDeny: false,
+        runtimeConfig: {
+          filesystem: {
+            allowRead: ["/original"],
+            denyRead: [],
+            allowWrite: [],
+            denyWrite: [],
+          },
+        },
+        preWrapHook: async (_cmd, config) => {
+          config.filesystem!.allowRead!.push("/mutated");
+          return "mutated-cmd";
+        },
+      };
+      const spy = vi
+        .spyOn(SandboxManager, "wrapWithSandbox")
+        .mockResolvedValue("wrapped");
+      try {
+        await freshSb.getWrappedCommand("mutate");
+        expect(spy).toHaveBeenCalledWith("mutated-cmd", undefined, {
+          filesystem: {
+            allowRead: ["/original", "/mutated"],
+            denyRead: [],
+            allowWrite: [],
+            denyWrite: [],
+          },
+        });
+      } finally {
+        spy.mockRestore();
+      }
+    });
   });
 
   describe("getCommandConfig", () => {
@@ -62,6 +172,16 @@ describe("ScopedSandbox", () => {
           return cmd.replace("npm", "pnpm");
         },
       };
+    });
+
+    it("should return undefined when no command matches", () => {
+      expect(sb.getCommandConfig("totally-unknown")).toBeUndefined();
+    });
+
+    it("should not match partial words", () => {
+      const freshSb = new ScopedSandbox({ alwaysDeny: false });
+      freshSb.scopedCommands["npm"] = { alwaysDeny: true };
+      expect(freshSb.getCommandConfig("npx install")).toBeUndefined();
     });
 
     it("should match single command", () => {
