@@ -2,7 +2,8 @@
   "network": {
     "allowedDomains": [
       "github.com",
-      "dev.algorand.co"
+      "dev.algorand.co",
+      "raw.githubusercontent.com"
     ],
     "deniedDomains": []
   }
