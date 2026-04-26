@@ -17,7 +17,11 @@ const GLOBAL_CONFIG: SandboxRuntimeConfig = {
 };
 
 export type CommandConfig = {
-  allow: boolean;
+  /**
+   * always deny a command when it matches this config.
+   * It should be noted that when this is false the `preWrapHook` can still throw and prevent the command from running
+   */
+  alwaysDeny: boolean;
   /** srt runtime configuration for this specific command */
   runtimeConfig?: Partial<SandboxRuntimeConfig>;
   /** Callback that may modify the runtime config (modified in place) or the command wrapped (returned) */
@@ -42,7 +46,7 @@ export class ScopedSandbox {
     await SandboxManager.waitForNetworkInitialization();
   }
 
-  constructor(public defaultConfig: Partial<SandboxRuntimeConfig>) {}
+  constructor(public defaultConfig: CommandConfig) {}
 
   /**
    * Get the scoped config for the most specific match in scopedCommands
@@ -73,21 +77,14 @@ export class ScopedSandbox {
       throw Error("Must call ScopedSandbox.initialize first!");
     }
 
-    const match = this.getCommandConfig(command);
+    const { config, matchedKey } = this.getCommandConfig(command) ?? {
+      config: this.defaultConfig,
+      matchedKey: "default",
+    };
 
-    if (match === undefined) {
-      return await SandboxManager.wrapWithSandbox(
-        command,
-        undefined,
-        this.defaultConfig,
-      );
-    }
-
-    const { config, matchedKey } = match;
-
-    if (!config.allow) {
+    if (config.alwaysDeny) {
       throw Error(
-        `ScopedSandbox: ${command} has been blocked due to "allow: false" configuration for ${matchedKey}`,
+        `ScopedSandbox: ${command} has been blocked due to "alwaysDeny: true" in "${matchedKey}" configuration`,
       );
     }
 

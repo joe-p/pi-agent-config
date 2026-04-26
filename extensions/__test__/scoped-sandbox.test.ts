@@ -8,17 +8,17 @@ describe("ScopedSandbox", () => {
     let sb: ScopedSandbox;
 
     beforeAll(async () => {
-      sb = new ScopedSandbox({});
+      sb = new ScopedSandbox({ alwaysDeny: false });
 
       sb.scopedCommands["npm"] = {
-        allow: true,
+        alwaysDeny: false,
         preWrapHook: async (cmd, _config) => {
           return cmd.replace("npm", "pnpm");
         },
       };
 
       sb.scopedCommands["shutdown"] = {
-        allow: false,
+        alwaysDeny: true,
       };
     });
 
@@ -29,7 +29,7 @@ describe("ScopedSandbox", () => {
 
     it("should throw when allow === false", async () => {
       await expect(sb.getWrappedCommand("shutdown")).rejects.toThrow(
-        `ScopedSandbox: shutdown has been blocked due to "allow: false" configuration for shutdown`,
+        `ScopedSandbox: shutdown has been blocked due to "alwaysDeny: true" in "shutdown" configuration`,
       );
     });
   });
@@ -38,10 +38,10 @@ describe("ScopedSandbox", () => {
     let sb: ScopedSandbox;
 
     beforeAll(async () => {
-      sb = new ScopedSandbox({});
+      sb = new ScopedSandbox({ alwaysDeny: false });
       const addtestConfig = (command: string) => {
         sb.scopedCommands[command] = {
-          allow: true,
+          alwaysDeny: true,
           runtimeConfig: {
             filesystem: {
               allowRead: [command],
@@ -57,7 +57,7 @@ describe("ScopedSandbox", () => {
       addtestConfig("pnpm add");
       addtestConfig("pnpm add -D");
       sb.scopedCommands["npm"] = {
-        allow: true,
+        alwaysDeny: true,
         preWrapHook: async (cmd, _config) => {
           return cmd.replace("npm", "pnpm");
         },
