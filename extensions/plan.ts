@@ -131,9 +131,9 @@ export default function planModeExtension(pi: ExtensionAPI): void {
 
   function updateStatus(ctx: ExtensionContext): void {
     if (planModeEnabled) {
-      ctx.ui.setStatus("plan-mode", ctx.ui.theme.fg("warning", "⏸ plan"));
+      ctx.ui.setStatus("plan-mode", ctx.ui.theme.fg("warning", "📖"));
     } else {
-      ctx.ui.setStatus("plan-mode", undefined);
+      ctx.ui.setStatus("plan-mode", ctx.ui.theme.fg("warning", "✍️"));
     }
   }
 
