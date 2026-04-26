@@ -3,15 +3,14 @@ import {
   type SandboxRuntimeConfig,
 } from "@anthropic-ai/sandbox-runtime";
 
-// Define your sandbox configuration
-const BASE_CONFIG: SandboxRuntimeConfig = {
+const GLOBAL_CONFIG: SandboxRuntimeConfig = {
   network: {
     allowedDomains: [],
     deniedDomains: [],
   },
   filesystem: {
     allowRead: ["."],
-    denyRead: ["~/.ssh", "*.env", "*.pem", "*.key"],
+    denyRead: ["*.env", "*.pem", "*.key"],
     allowWrite: [],
     denyWrite: [],
   },
@@ -31,14 +30,19 @@ export type CommandConfig = {
 export class ScopedSandbox {
   scopedCommands: Record<string, CommandConfig> = {};
 
-  static async initialize(baseConfig?: SandboxRuntimeConfig) {
-    await SandboxManager.initialize(baseConfig || BASE_CONFIG);
-    await SandboxManager.waitForNetworkInitialization();
+  static initialized: boolean = false;
 
-    return new ScopedSandbox();
+  static async initialize(globalConfig?: SandboxRuntimeConfig) {
+    if (ScopedSandbox.initialized) {
+      throw Error("Initialize can only be called once!");
+    }
+    ScopedSandbox.initialized = true;
+
+    await SandboxManager.initialize(globalConfig || GLOBAL_CONFIG);
+    await SandboxManager.waitForNetworkInitialization();
   }
 
-  private constructor() {}
+  constructor(public defaultConfig: Partial<SandboxRuntimeConfig>) {}
 
   /**
    * Get the scoped config for the most specific match in scopedCommands
@@ -65,10 +69,18 @@ export class ScopedSandbox {
   }
 
   async getWrappedCommand(command: string): Promise<string> {
+    if (!ScopedSandbox.initialized) {
+      throw Error("Must call ScopedSandbox.initialize first!");
+    }
+
     const match = this.getCommandConfig(command);
 
     if (match === undefined) {
-      return await SandboxManager.wrapWithSandbox(command);
+      return await SandboxManager.wrapWithSandbox(
+        command,
+        undefined,
+        this.defaultConfig,
+      );
     }
 
     const { config, matchedKey } = match;

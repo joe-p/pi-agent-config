@@ -1,12 +1,14 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { ScopedSandbox } from "../lib/scoped-sandbox";
 
+await ScopedSandbox.initialize();
+
 describe("ScopedSandbox", () => {
   describe("getWrappedCommand", () => {
     let sb: ScopedSandbox;
 
     beforeAll(async () => {
-      sb = await ScopedSandbox.initialize();
+      sb = new ScopedSandbox({});
 
       sb.scopedCommands["npm"] = {
         allow: true,
@@ -36,7 +38,7 @@ describe("ScopedSandbox", () => {
     let sb: ScopedSandbox;
 
     beforeAll(async () => {
-      sb = await ScopedSandbox.initialize();
+      sb = new ScopedSandbox({});
       const addtestConfig = (command: string) => {
         sb.scopedCommands[command] = {
           allow: true,
