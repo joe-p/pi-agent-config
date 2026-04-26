@@ -74,7 +74,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, resolve, matchesGlob } from "node:path";
 import {
   SandboxManager,
   type SandboxRuntimeConfig,
