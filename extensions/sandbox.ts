@@ -886,15 +886,7 @@ export default function (pi: ExtensionAPI) {
       sandboxEnabled = true;
       sandboxInitialized = true;
 
-      const networkCount = config.network?.allowedDomains?.length ?? 0;
-      const writeCount = config.filesystem?.allowWrite?.length ?? 0;
-      ctx.ui.setStatus(
-        "sandbox",
-        ctx.ui.theme.fg(
-          "accent",
-          `🔒 Sandbox: ${networkCount} domains, ${writeCount} write paths`,
-        ),
-      );
+      ctx.ui.setStatus("sandbox", ctx.ui.theme.fg("accent", `🔒`));
     } catch (err) {
       sandboxEnabled = false;
       ctx.ui.notify(
@@ -951,15 +943,7 @@ export default function (pi: ExtensionAPI) {
         sandboxEnabled = true;
         sandboxInitialized = true;
 
-        const networkCount = config.network?.allowedDomains?.length ?? 0;
-        const writeCount = config.filesystem?.allowWrite?.length ?? 0;
-        ctx.ui.setStatus(
-          "sandbox",
-          ctx.ui.theme.fg(
-            "accent",
-            `🔒 Sandbox: ${networkCount} domains, ${writeCount} write paths`,
-          ),
-        );
+        ctx.ui.setStatus("sandbox", ctx.ui.theme.fg("accent", `🔒`));
         ctx.ui.notify("Sandbox enabled", "info");
       } catch (err) {
         ctx.ui.notify(
