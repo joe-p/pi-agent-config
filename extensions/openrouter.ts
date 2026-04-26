@@ -48,6 +48,7 @@ function loadConfig(configPath: string): ProviderPreferencesConfig | null {
       if (typeof provider !== "object" || provider === null) {
         console.error(
           `[OpenRouter Provider Prefs] Invalid provider config for ${modelId}: must be an object`,
+          "error",
         );
         return null;
       }
@@ -81,17 +82,10 @@ export default function (pi: ExtensionAPI) {
   let config: ProviderPreferencesConfig | null = loadConfig(configPath);
 
   // Log loaded config status on startup
-  if (config) {
-    const modelCount = Object.keys(config).length;
-    console.log(
-      `[OpenRouter Provider Prefs] Loaded preferences for ${modelCount} model(s) from ${configPath}`,
-    );
-  } else if (existsSync(configPath)) {
-    console.warn(
+  if (config === null && existsSync(configPath)) {
+    console.error(
       `[OpenRouter Provider Prefs] Config file exists but failed to load: ${configPath}`,
     );
-  } else {
-    console.log(`[OpenRouter Provider Prefs] No config found at ${configPath}`);
   }
 
   // Intercept requests to inject provider preferences
@@ -129,7 +123,7 @@ export default function (pi: ExtensionAPI) {
       const subcommand = args.trim().toLowerCase();
 
       if (subcommand === "reload" || subcommand === "r") {
-        const newConfig = loadConfig(configPath);
+        const newConfig = loadConfig(ctx, configPath);
         if (newConfig) {
           config = newConfig;
           const modelCount = Object.keys(config).length;
