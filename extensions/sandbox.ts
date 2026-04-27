@@ -85,7 +85,7 @@ import {
   createBashTool,
   isToolCallEventType,
 } from "@mariozechner/pi-coding-agent";
-import { ScopedSandbox } from "./lib/scoped-sandbox";
+import { ParentCommand, ScopedSandbox } from "./lib/scoped-sandbox";
 
 const DEFAULT_CONFIG: SandboxRuntimeConfig = {
   network: {
@@ -93,7 +93,7 @@ const DEFAULT_CONFIG: SandboxRuntimeConfig = {
     deniedDomains: [],
   },
   filesystem: {
-    denyRead: ["/Users", "/home", ".env", ".env.*", "*.pem", "*.key"],
+    denyRead: [".env", ".env.*", "*.pem", "*.key"],
     allowRead: [".", "~/.config", "~/.local"],
     allowWrite: [".", "/tmp"],
     denyWrite: [],
@@ -105,25 +105,34 @@ await ScopedSandbox.initialize(DEFAULT_CONFIG);
 class SandboxWithContext {
   public sandbox: ScopedSandbox;
   public ctx?: ExtensionContext;
+  public lastParentApproved?: string;
+
+  async assertApproval(parentCommand: ParentCommand): Promise<void> {
+    const { command, id } = parentCommand;
+    if (this.lastParentApproved === id) return;
+    if (!this.ctx) {
+      throw Error("Failed to get ctx!");
+    }
+
+    const choice = await this.ctx.ui.select(
+      `[sandbox] run command?: ${command}`,
+      ["No, do not run this command", "Yes, run this command"],
+    );
+
+    if (!choice?.startsWith("Yes")) {
+      throw Error(
+        `Bash command rejected by user: ${command}. Ask them how they want to proceed.`,
+      );
+    }
+
+    this.lastParentApproved = id;
+  }
 
   constructor() {
     this.sandbox = new ScopedSandbox({
       alwaysDeny: false,
-      preWrapHook: async (command, _parentCommand) => {
-        if (!this.ctx) {
-          throw Error("Failed to get ctx!");
-        }
-
-        const choice = await this.ctx.ui.select(
-          `[sandbox] run command?: ${command}`,
-          ["No, do not run this command", "Yes, run this command"],
-        );
-
-        if (!choice?.startsWith("Yes")) {
-          throw Error(
-            `Bash command rejected by user: ${command}. Ask them how they want to proceed.`,
-          );
-        }
+      preWrapHook: async (command, parentCommand) => {
+        await this.assertApproval(parentCommand);
         return command;
       },
     });
@@ -147,23 +156,10 @@ class SandboxWithContext {
     ["cat", "echo", "grep", "rg", "tail", "less", "more", "wc"].forEach((c) => {
       this.sandbox.scopedCommands[c] = {
         alwaysDeny: false,
-        preWrapHook: async (command, _parentCommand) => {
-          if (!this.ctx) {
-            throw Error("Failed to get ctx!");
-          }
-
+        preWrapHook: async (command, parentCommand) => {
           // If this includes piping to a file, ask the user
           if (command.includes("| tee") || command.includes(">")) {
-            const choice = await this.ctx.ui.select(
-              `[sandbox] run command?: ${command}`,
-              ["No, do not run this command", "Yes, run this command"],
-            );
-
-            if (!choice?.startsWith("Yes")) {
-              throw Error(
-                `Bash command rejected by user: ${command}. Ask them how they want to proceed.`,
-              );
-            }
+            await this.assertApproval(parentCommand);
           }
           return command;
         },
