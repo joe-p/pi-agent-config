@@ -13,7 +13,7 @@ describe("ScopedSandbox", () => {
 
       sb.scopedCommands["npm"] = {
         alwaysDeny: false,
-        preWrapHook: async (cmd, _config) => {
+        preWrapHook: async (cmd) => {
           return cmd.replace("npm", "pnpm");
         },
       };
@@ -71,7 +71,7 @@ describe("ScopedSandbox", () => {
         .mockResolvedValue("wrapped");
       try {
         await freshSb.getWrappedCommand("npm install");
-        expect(spy).toHaveBeenCalledWith("pnpm install", undefined, {});
+        expect(spy).toHaveBeenCalledWith("pnpm install", undefined, undefined);
       } finally {
         spy.mockRestore();
       }
@@ -107,41 +107,6 @@ describe("ScopedSandbox", () => {
         spy.mockRestore();
       }
     });
-
-    it("should allow preWrapHook to mutate runtimeConfig", async () => {
-      const freshSb = new ScopedSandbox({ alwaysDeny: false });
-      freshSb.scopedCommands["mutate"] = {
-        alwaysDeny: false,
-        runtimeConfig: {
-          filesystem: {
-            allowRead: ["/original"],
-            denyRead: [],
-            allowWrite: [],
-            denyWrite: [],
-          },
-        },
-        preWrapHook: async (_cmd, config) => {
-          config.filesystem!.allowRead!.push("/mutated");
-          return "mutated-cmd";
-        },
-      };
-      const spy = vi
-        .spyOn(SandboxManager, "wrapWithSandbox")
-        .mockResolvedValue("wrapped");
-      try {
-        await freshSb.getWrappedCommand("mutate");
-        expect(spy).toHaveBeenCalledWith("mutated-cmd", undefined, {
-          filesystem: {
-            allowRead: ["/original", "/mutated"],
-            denyRead: [],
-            allowWrite: [],
-            denyWrite: [],
-          },
-        });
-      } finally {
-        spy.mockRestore();
-      }
-    });
   });
 
   describe("getCommandConfig", () => {
@@ -168,7 +133,7 @@ describe("ScopedSandbox", () => {
       addtestConfig("pnpm add -D");
       sb.scopedCommands["npm"] = {
         alwaysDeny: true,
-        preWrapHook: async (cmd, _config) => {
+        preWrapHook: async (cmd) => {
           return cmd.replace("npm", "pnpm");
         },
       };

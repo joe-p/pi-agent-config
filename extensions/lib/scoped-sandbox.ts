@@ -2,6 +2,7 @@ import {
   SandboxManager,
   type SandboxRuntimeConfig,
 } from "@anthropic-ai/sandbox-runtime";
+import { parse } from "shell-quote";
 
 const GLOBAL_CONFIG: SandboxRuntimeConfig = {
   network: {
@@ -24,11 +25,8 @@ export type CommandConfig = {
   alwaysDeny: boolean;
   /** srt runtime configuration for this specific command */
   runtimeConfig?: Partial<SandboxRuntimeConfig>;
-  /** Callback that may modify the runtime config (modified in place) or the command wrapped (returned) */
-  preWrapHook?: (
-    command: string,
-    config: Partial<SandboxRuntimeConfig>,
-  ) => Promise<string>;
+  /** Callback that may return a modified command */
+  preWrapHook?: (command: string) => Promise<string>;
 };
 
 export class ScopedSandbox {
@@ -77,25 +75,35 @@ export class ScopedSandbox {
       throw Error("Must call ScopedSandbox.initialize first!");
     }
 
-    const { config, matchedKey } = this.getCommandConfig(command) ?? {
-      config: this.defaultConfig,
-      matchedKey: "default",
-    };
+    // TODO: merge runtime configs?
+    const runtimeConfig =
+      this.getCommandConfig(command)?.config.runtimeConfig ??
+      this.defaultConfig.runtimeConfig;
+    const cmdParts: string[] = [];
 
-    if (config.alwaysDeny) {
-      throw Error(
-        `ScopedSandbox: ${command} has been blocked due to "alwaysDeny: true" in "${matchedKey}" configuration`,
-      );
+    for (const e of parse(command)) {
+      if (typeof e === "string") {
+        const { config, matchedKey } = this.getCommandConfig(command) ?? {
+          config: this.defaultConfig,
+          matchedKey: "default",
+        };
+
+        if (config.alwaysDeny) {
+          throw Error(
+            `ScopedSandbox: ${command} has been blocked due to "alwaysDeny: true" in "${matchedKey}" configuration`,
+          );
+        }
+
+        cmdParts.push(config.preWrapHook ? await config.preWrapHook(e) : e);
+      } else if ("op" in e && e.op == "glob") {
+        cmdParts.push(e.pattern);
+      } else if ("op" in e) {
+        cmdParts.push(e.op);
+      }
     }
 
-    const runtimeConfig = config.runtimeConfig ?? {};
-
-    const cmdToWrap = config.preWrapHook
-      ? await config.preWrapHook(command, runtimeConfig)
-      : command;
-
     return await SandboxManager.wrapWithSandbox(
-      cmdToWrap,
+      cmdParts.join(" "),
       undefined,
       runtimeConfig,
     );

@@ -16,12 +16,14 @@
     "@mozilla/readability": "^0.6.0",
     "@napi-rs/keyring": "^1.2.0",
     "jsdom": "^29.0.2",
+    "shell-quote": "^1.8.3",
     "turndown": "^7.2.4",
     "turndown-plugin-gfm": "^1.0.2",
     "typebox": "^1.1.33"
   },
   "devDependencies": {
     "@types/node": "^20.19.39",
+    "@types/shell-quote": "^1.7.5",
     "prettier": "^3.8.3",
     "typescript": "^5.9.3",
     "vitest": "^4.1.4"
