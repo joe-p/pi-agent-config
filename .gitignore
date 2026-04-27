@@ -1,3 +1,4 @@
 node_modules/
 auth.json
 sessions/
+.pnpm-store/

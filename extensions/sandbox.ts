@@ -85,7 +85,11 @@ import {
   createBashTool,
   isToolCallEventType,
 } from "@mariozechner/pi-coding-agent";
-import { ParentCommand, ScopedSandbox } from "./lib/scoped-sandbox";
+import {
+  emptyRuntimeConfig,
+  ParentCommand,
+  ScopedSandbox,
+} from "./lib/scoped-sandbox";
 
 /** Rules that are ALWAYS enforced */
 const GLOBAL_CONFIG: SandboxRuntimeConfig = {
@@ -100,8 +104,6 @@ const GLOBAL_CONFIG: SandboxRuntimeConfig = {
     denyWrite: ["~/.git"],
   },
 };
-
-await ScopedSandbox.initialize(GLOBAL_CONFIG);
 
 type Mode = "plan" | "build";
 
@@ -143,6 +145,7 @@ class SandboxWithContext {
       build: new ScopedSandbox({
         alwayDenyWithMessage: false,
         runtimeConfig: {
+          ...emptyRuntimeConfig(),
           filesystem: {
             allowRead: [],
             denyRead: [],
@@ -153,21 +156,36 @@ class SandboxWithContext {
       }),
       plan: new ScopedSandbox({
         alwayDenyWithMessage: false,
-        runtimeConfig: {
-          filesystem: {
-            allowRead: [],
-            denyRead: [],
-            allowWrite: [],
-            denyWrite: [],
-          },
-        },
+        runtimeConfig: emptyRuntimeConfig(),
       }),
     };
+
+    ["npm install", "pnpm install", "pnpm add"].forEach((c) => {
+      this.sandboxes["build"].scopedCommands[c] = {
+        alwayDenyWithMessage: false,
+        approvalAssertion: async (_, parentCommand) => {
+          await this.assertApproval(parentCommand);
+        },
+        runtimeConfig: {
+          filesystem: {
+            allowRead: ["."],
+            denyRead: [],
+            allowWrite: ["."],
+            denyWrite: [".git"],
+          },
+          network: {
+            allowedDomains: ["npmjs.org", "registry.npmjs.org", "npm.jsr.io"],
+            deniedDomains: [],
+          },
+        },
+      };
+    });
 
     const allowedGitCmds = ["diff", "grep", "log", "show", "status"];
 
     ["build", "plan"].forEach((mode) => {
       this.sandboxes[mode as Mode].scopedCommands["git"] = {
+        runtimeConfig: emptyRuntimeConfig(),
         alwayDenyWithMessage: `This git command is not allowed. The allowed commands are ${allowedGitCmds}. As an agent, you should only use read-only git commands. If you think this is a mistake, inform the user and ask them to allow the sub-command you are trying to use`,
       };
 
@@ -175,6 +193,7 @@ class SandboxWithContext {
         this.sandboxes[mode as Mode].scopedCommands[`git ${c}`] = {
           alwayDenyWithMessage: false,
           runtimeConfig: {
+            ...emptyRuntimeConfig(),
             filesystem: {
               allowRead: ["~/.gitconfig"],
               allowWrite: [],
@@ -359,64 +378,67 @@ function createSandboxedBashOps(ctx: ExtensionContext): BashOperations {
       }
 
       sandbox.ctx = ctx;
-      const wrappedCommand = await sandbox.sandbox.getWrappedCommand(command);
 
       return new Promise((resolve, reject) => {
-        const child = spawn("bash", ["-c", wrappedCommand], {
-          cwd,
-          env,
-          detached: true,
-          stdio: ["ignore", "pipe", "pipe"],
-        });
+        sandbox.sandbox
+          .withWrappedCommand(command, async (wrappedCommand) => {
+            const child = spawn("bash", ["-c", wrappedCommand], {
+              cwd,
+              env,
+              detached: true,
+              stdio: ["ignore", "pipe", "pipe"],
+            });
 
-        let timedOut = false;
-        let timeoutHandle: NodeJS.Timeout | undefined;
+            let timedOut = false;
+            let timeoutHandle: NodeJS.Timeout | undefined;
 
-        if (timeout !== undefined && timeout > 0) {
-          timeoutHandle = setTimeout(() => {
-            timedOut = true;
-            if (child.pid) {
-              try {
-                process.kill(-child.pid, "SIGKILL");
-              } catch {
-                child.kill("SIGKILL");
+            if (timeout !== undefined && timeout > 0) {
+              timeoutHandle = setTimeout(() => {
+                timedOut = true;
+                if (child.pid) {
+                  try {
+                    process.kill(-child.pid, "SIGKILL");
+                  } catch {
+                    child.kill("SIGKILL");
+                  }
+                }
+              }, timeout * 1000);
+            }
+
+            child.stdout?.on("data", onData);
+            child.stderr?.on("data", onData);
+
+            child.on("error", (err) => {
+              if (timeoutHandle) clearTimeout(timeoutHandle);
+              reject(err);
+            });
+
+            const onAbort = () => {
+              if (child.pid) {
+                try {
+                  process.kill(-child.pid, "SIGKILL");
+                } catch {
+                  child.kill("SIGKILL");
+                }
               }
-            }
-          }, timeout * 1000);
-        }
+            };
 
-        child.stdout?.on("data", onData);
-        child.stderr?.on("data", onData);
+            signal?.addEventListener("abort", onAbort, { once: true });
 
-        child.on("error", (err) => {
-          if (timeoutHandle) clearTimeout(timeoutHandle);
-          reject(err);
-        });
+            child.on("close", (code) => {
+              if (timeoutHandle) clearTimeout(timeoutHandle);
+              signal?.removeEventListener("abort", onAbort);
 
-        const onAbort = () => {
-          if (child.pid) {
-            try {
-              process.kill(-child.pid, "SIGKILL");
-            } catch {
-              child.kill("SIGKILL");
-            }
-          }
-        };
-
-        signal?.addEventListener("abort", onAbort, { once: true });
-
-        child.on("close", (code) => {
-          if (timeoutHandle) clearTimeout(timeoutHandle);
-          signal?.removeEventListener("abort", onAbort);
-
-          if (signal?.aborted) {
-            reject(new Error("aborted"));
-          } else if (timedOut) {
-            reject(new Error(`timeout:${timeout}`));
-          } else {
-            resolve({ exitCode: code });
-          }
-        });
+              if (signal?.aborted) {
+                reject(new Error("aborted"));
+              } else if (timedOut) {
+                reject(new Error(`timeout:${timeout}`));
+              } else {
+                resolve({ exitCode: code });
+              }
+            });
+          })
+          .catch(reject);
       });
     },
   };
