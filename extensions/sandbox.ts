@@ -109,7 +109,7 @@ class SandboxWithContext {
   constructor() {
     this.sandbox = new ScopedSandbox({
       alwaysDeny: false,
-      preWrapHook: async (command, config) => {
+      preWrapHook: async (command, _parentCommand) => {
         if (!this.ctx) {
           throw Error("Failed to get ctx!");
         }
@@ -147,7 +147,7 @@ class SandboxWithContext {
     ["cat", "echo", "grep", "rg", "tail", "less", "more", "wc"].forEach((c) => {
       this.sandbox.scopedCommands[c] = {
         alwaysDeny: false,
-        preWrapHook: async (command, _config) => {
+        preWrapHook: async (command, _parentCommand) => {
           if (!this.ctx) {
             throw Error("Failed to get ctx!");
           }
