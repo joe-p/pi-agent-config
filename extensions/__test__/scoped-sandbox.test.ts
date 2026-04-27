@@ -76,10 +76,8 @@ describe("ScopedSandbox", () => {
         expect(spy).toHaveBeenCalledWith("test cmd", undefined, {
           ...emptyRuntimeConfig(),
           filesystem: {
+            ...emptyRuntimeConfig().filesystem,
             allowRead: ["/tmp"],
-            denyRead: [],
-            allowWrite: [],
-            denyWrite: [],
           },
         });
       } finally {
@@ -145,6 +143,105 @@ describe("ScopedSandbox", () => {
         },
       );
     }, 15000);
+
+    it("should block file read without allowRead permission", async () => {
+      const { exec } = await import("child_process");
+      const { promisify } = await import("util");
+      const execAsync = promisify(exec);
+
+      const freshSb = new ScopedSandbox({
+        alwayDenyWithMessage: false,
+        runtimeConfig: emptyRuntimeConfig(),
+      });
+
+      // Create a test file in /tmp
+      const testFile = `/tmp/scoped-sandbox-test-${Date.now()}.txt`;
+      await execAsync(`echo "test content" > ${testFile}`);
+
+      try {
+        await freshSb.withWrappedCommand(
+          `cat ${testFile}`,
+          async (wrappedCmd) => {
+            // File read should fail without filesystem permissions
+            await expect(
+              execAsync(wrappedCmd, { timeout: 5000 }),
+            ).rejects.toThrow();
+          },
+        );
+      } finally {
+        // Cleanup
+        await execAsync(`rm -f ${testFile}`).catch(() => {});
+      }
+    }, 10000);
+
+    it("should allow file read/write with command-specific allowRead/allowWrite config", async () => {
+      const { exec } = await import("child_process");
+      const { promisify } = await import("util");
+      const execAsync = promisify(exec);
+
+      const freshSb = new ScopedSandbox({
+        alwayDenyWithMessage: false,
+        runtimeConfig: emptyRuntimeConfig(),
+      });
+
+      // Add command-specific config that allows /tmp access
+      freshSb.scopedCommands["cat"] = {
+        alwayDenyWithMessage: false,
+        runtimeConfig: {
+          filesystem: {
+            allowRead: ["/private/tmp"],
+            denyRead: [],
+            allowWrite: [],
+            denyWrite: [],
+          },
+          network: {
+            deniedDomains: [],
+            allowedDomains: [],
+          },
+        },
+      };
+
+      freshSb.scopedCommands["echo"] = {
+        alwayDenyWithMessage: false,
+        runtimeConfig: {
+          filesystem: {
+            allowRead: [],
+            denyRead: [],
+            allowWrite: ["/private/tmp"],
+            denyWrite: [],
+          },
+          network: {
+            deniedDomains: [],
+            allowedDomains: [],
+          },
+        },
+      };
+
+      const testFile = `/tmp/scoped-sandbox-test-${Date.now()}.txt`;
+      const testContent = `test-content-${Date.now()}`;
+
+      try {
+        // Test write permission
+        await freshSb.withWrappedCommand(
+          `echo "${testContent}" > ${testFile}`,
+          async (wrappedCmd) => {
+            await execAsync(wrappedCmd, { timeout: 5000 });
+          },
+        );
+
+        // Test read permission
+        await freshSb.withWrappedCommand(
+          `cat ${testFile}`,
+          async (wrappedCmd) => {
+            const result = await execAsync(wrappedCmd, { timeout: 5000 });
+            expect(result.stdout.trim()).toBe(testContent);
+          },
+        );
+      } finally {
+        // Cleanup
+        await execAsync(`rm -f ${testFile}`).catch(() => {});
+      }
+    }, 10000);
   });
 
   describe("getCommandConfig", () => {

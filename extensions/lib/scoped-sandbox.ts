@@ -10,7 +10,12 @@ export type ParentCommand = { command: string; id: string };
 export function emptyRuntimeConfig(): SandboxRuntimeConfig {
   return {
     network: { allowedDomains: [], deniedDomains: [] },
-    filesystem: { allowWrite: [], denyRead: [], denyWrite: [], allowRead: [] },
+    filesystem: {
+      allowWrite: [],
+      denyRead: ["/"],
+      denyWrite: [],
+      allowRead: [],
+    },
   };
 }
 
