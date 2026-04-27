@@ -87,20 +87,21 @@ import {
 } from "@mariozechner/pi-coding-agent";
 import { ParentCommand, ScopedSandbox } from "./lib/scoped-sandbox";
 
-const DEFAULT_CONFIG: SandboxRuntimeConfig = {
+/** Rules that are ALWAYS enforced */
+const GLOBAL_CONFIG: SandboxRuntimeConfig = {
   network: {
     allowedDomains: [],
     deniedDomains: [],
   },
   filesystem: {
-    denyRead: [".env", ".env.*", "*.pem", "*.key"],
+    denyRead: [".env", ".env.*", "*.pem", "*.key", ".pi", "~/.pi"],
     allowRead: [".", "~/.config", "~/.local"],
-    allowWrite: [".", "/tmp"],
-    denyWrite: [],
+    allowWrite: [],
+    denyWrite: ["~/.git"],
   },
 };
 
-await ScopedSandbox.initialize(DEFAULT_CONFIG);
+await ScopedSandbox.initialize(GLOBAL_CONFIG);
 
 class SandboxWithContext {
   public sandbox: ScopedSandbox;
@@ -134,6 +135,15 @@ class SandboxWithContext {
       approvalAssertion: async (_, parentCommand) => {
         await this.assertApproval(parentCommand);
       },
+      /** Rules that are enforced unless there is a command-specific configuration */
+      runtimeConfig: {
+        filesystem: {
+          allowRead: [],
+          denyRead: [],
+          allowWrite: [".", "/tmp"],
+          denyWrite: [],
+        },
+      },
     });
 
     // allowed git subcommands
@@ -152,7 +162,23 @@ class SandboxWithContext {
     });
 
     // well-known bash commands
-    ["cat", "echo", "grep", "rg", "tail", "less", "more", "wc"].forEach((c) => {
+    [
+      "cat",
+      "echo",
+      "grep",
+      "rg",
+      "tail",
+      "less",
+      "more",
+      "wc",
+      "ls",
+      "xargs",
+      "cd",
+      "nvim",
+      "true",
+      "luac",
+      "find",
+    ].forEach((c) => {
       this.sandbox.scopedCommands[c] = {
         alwaysDeny: false,
       };
@@ -185,7 +211,7 @@ export function loadConfig(cwd: string): SandboxRuntimeConfig {
     }
   }
 
-  return deepMerge(deepMerge(DEFAULT_CONFIG, globalConfig), projectConfig);
+  return deepMerge(deepMerge(GLOBAL_CONFIG, globalConfig), projectConfig);
 }
 
 function deepMerge(
