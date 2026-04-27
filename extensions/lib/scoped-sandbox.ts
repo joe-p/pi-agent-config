@@ -12,7 +12,7 @@ export function emptyRuntimeConfig(): SandboxRuntimeConfig {
     network: { allowedDomains: [], deniedDomains: [] },
     filesystem: {
       allowWrite: [],
-      denyRead: ["/"],
+      denyRead: ["/Users/"],
       denyWrite: [],
       allowRead: [],
     },
@@ -83,6 +83,9 @@ export class ScopedSandbox {
     const runtimeConfig =
       this.getCommandConfig(command)?.config.runtimeConfig ??
       this.defaultConfig.runtimeConfig;
+
+    if (runtimeConfig.filesystem.denyRead.includes("/Users/"))
+      runtimeConfig.filesystem.denyRead.push("/Users/");
 
     const initPromise = initialize(runtimeConfig);
     // After initialization, update config with the runtime config

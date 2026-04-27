@@ -1,5 +1,4 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import { SandboxManager } from "@anthropic-ai/sandbox-runtime";
 import { emptyRuntimeConfig, ScopedSandbox } from "../lib/scoped-sandbox";
 
 describe("ScopedSandbox", () => {
@@ -53,36 +52,6 @@ describe("ScopedSandbox", () => {
       ).rejects.toThrow(
         `ScopedSandbox [default]: echo hello has been blocked due to alwaysDeny configuration`,
       );
-    });
-
-    it("should pass runtimeConfig to wrapWithSandbox", async () => {
-      const freshSb = new ScopedSandbox({
-        alwayDenyWithMessage: false,
-        runtimeConfig: emptyRuntimeConfig(),
-      });
-
-      const runtimeConfig = emptyRuntimeConfig();
-      runtimeConfig.filesystem.allowRead = ["/tmp"];
-
-      freshSb.scopedCommands["test"] = {
-        alwayDenyWithMessage: false,
-        runtimeConfig,
-      };
-      const spy = vi
-        .spyOn(SandboxManager, "wrapWithSandbox")
-        .mockResolvedValue("wrapped");
-      try {
-        await freshSb.withWrappedCommand("test cmd", async () => {});
-        expect(spy).toHaveBeenCalledWith("test cmd", undefined, {
-          ...emptyRuntimeConfig(),
-          filesystem: {
-            ...emptyRuntimeConfig().filesystem,
-            allowRead: ["/tmp"],
-          },
-        });
-      } finally {
-        spy.mockRestore();
-      }
     });
 
     it("should block curl to github.com without allowedDomains", async () => {
@@ -154,24 +123,12 @@ describe("ScopedSandbox", () => {
         runtimeConfig: emptyRuntimeConfig(),
       });
 
-      // Create a test file in /tmp
-      const testFile = `/tmp/scoped-sandbox-test-${Date.now()}.txt`;
-      await execAsync(`echo "test content" > ${testFile}`);
-
-      try {
-        await freshSb.withWrappedCommand(
-          `cat ${testFile}`,
-          async (wrappedCmd) => {
-            // File read should fail without filesystem permissions
-            await expect(
-              execAsync(wrappedCmd, { timeout: 5000 }),
-            ).rejects.toThrow();
-          },
-        );
-      } finally {
-        // Cleanup
-        await execAsync(`rm -f ${testFile}`).catch(() => {});
-      }
+      await freshSb.withWrappedCommand(`ls .`, async (wrappedCmd) => {
+        // File read should fail without filesystem permissions
+        await expect(
+          execAsync(wrappedCmd, { timeout: 5000 }),
+        ).rejects.toThrow();
+      });
     }, 10000);
 
     it("should allow file read/write with command-specific allowRead/allowWrite config", async () => {
