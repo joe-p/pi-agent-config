@@ -5,7 +5,7 @@ import {
 import { parse } from "shell-quote";
 import crypto from "crypto";
 
-const GLOBAL_CONFIG: SandboxRuntimeConfig = {
+const DEFAULT_GLOBAL_CONFIG: SandboxRuntimeConfig = {
   network: {
     allowedDomains: [],
     deniedDomains: [],
@@ -46,7 +46,7 @@ export class ScopedSandbox {
     }
     ScopedSandbox.initialized = true;
 
-    await SandboxManager.initialize(globalConfig || GLOBAL_CONFIG);
+    await SandboxManager.initialize(globalConfig || DEFAULT_GLOBAL_CONFIG);
     await SandboxManager.waitForNetworkInitialization();
   }
 
