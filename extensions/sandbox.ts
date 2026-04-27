@@ -153,7 +153,7 @@ class SandboxWithContext {
           }
 
           // If this includes piping to a file, ask the user
-          if (command.includes("|") || command.includes(">")) {
+          if (command.includes("| tee") || command.includes(">")) {
             const choice = await this.ctx.ui.select(
               `[sandbox] run command?: ${command}`,
               ["No, do not run this command", "Yes, run this command"],
