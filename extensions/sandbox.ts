@@ -103,10 +103,13 @@ const GLOBAL_CONFIG: SandboxRuntimeConfig = {
 
 await ScopedSandbox.initialize(GLOBAL_CONFIG);
 
+type Mode = "plan" | "build";
+
 class SandboxWithContext {
-  public sandbox: ScopedSandbox;
   public ctx?: ExtensionContext;
   public lastParentApproved?: string;
+  public activeMode: Mode;
+  public sandboxes: { plan: ScopedSandbox; build: ScopedSandbox };
 
   async assertApproval(parentCommand: ParentCommand): Promise<void> {
     const { command, id } = parentCommand;
@@ -129,59 +132,52 @@ class SandboxWithContext {
     this.lastParentApproved = id;
   }
 
-  constructor() {
-    this.sandbox = new ScopedSandbox({
-      alwaysDeny: false,
-      approvalAssertion: async (_, parentCommand) => {
-        await this.assertApproval(parentCommand);
-      },
-      /** Rules that are enforced unless there is a command-specific configuration */
-      runtimeConfig: {
-        filesystem: {
-          allowRead: [],
-          denyRead: [],
-          allowWrite: [".", "/tmp"],
-          denyWrite: [],
-        },
-      },
-    });
+  get sandbox(): ScopedSandbox {
+    return this.sandboxes[this.activeMode];
+  }
 
-    // allowed git subcommands
-    ["diff", "grep", "log", "show", "status"].forEach((c) => {
-      this.sandbox.scopedCommands[`git ${c}`] = {
+  constructor() {
+    this.activeMode = "build";
+
+    this.sandboxes = {
+      build: new ScopedSandbox({
         alwaysDeny: false,
         runtimeConfig: {
           filesystem: {
-            allowRead: ["~/.gitconfig"],
-            allowWrite: [],
+            allowRead: [],
             denyRead: [],
+            allowWrite: [".", "/tmp"],
+            denyWrite: [".git"],
+          },
+        },
+      }),
+      plan: new ScopedSandbox({
+        alwaysDeny: false,
+        runtimeConfig: {
+          filesystem: {
+            allowRead: [],
+            denyRead: [],
+            allowWrite: [],
             denyWrite: [],
           },
         },
-      };
-    });
+      }),
+    };
 
-    // well-known bash commands
-    [
-      "cat",
-      "echo",
-      "grep",
-      "rg",
-      "tail",
-      "less",
-      "more",
-      "wc",
-      "ls",
-      "xargs",
-      "cd",
-      "nvim",
-      "true",
-      "luac",
-      "find",
-    ].forEach((c) => {
-      this.sandbox.scopedCommands[c] = {
-        alwaysDeny: false,
-      };
+    ["build", "plan"].forEach((mode) => {
+      ["diff", "grep", "log", "show", "status"].forEach((c) => {
+        this.sandboxes[mode].scopedCommands[`git ${c}`] = {
+          alwaysDeny: false,
+          runtimeConfig: {
+            filesystem: {
+              allowRead: ["~/.gitconfig"],
+              allowWrite: [],
+              denyRead: [],
+              denyWrite: [],
+            },
+          },
+        };
+      });
     });
   }
 }
