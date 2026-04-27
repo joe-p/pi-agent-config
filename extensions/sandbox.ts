@@ -131,9 +131,8 @@ class SandboxWithContext {
   constructor() {
     this.sandbox = new ScopedSandbox({
       alwaysDeny: false,
-      preWrapHook: async (command, parentCommand) => {
+      approvalAssertion: async (_, parentCommand) => {
         await this.assertApproval(parentCommand);
-        return command;
       },
     });
 
@@ -156,13 +155,6 @@ class SandboxWithContext {
     ["cat", "echo", "grep", "rg", "tail", "less", "more", "wc"].forEach((c) => {
       this.sandbox.scopedCommands[c] = {
         alwaysDeny: false,
-        preWrapHook: async (command, parentCommand) => {
-          // If this includes piping to a file, ask the user
-          if (command.includes("| tee") || command.includes(">")) {
-            await this.assertApproval(parentCommand);
-          }
-          return command;
-        },
       };
     });
   }

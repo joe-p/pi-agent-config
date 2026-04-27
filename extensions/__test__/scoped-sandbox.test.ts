@@ -13,19 +13,11 @@ describe("ScopedSandbox", () => {
 
       sb.scopedCommands["npm"] = {
         alwaysDeny: false,
-        preWrapHook: async (cmd) => {
-          return cmd.replace("npm", "pnpm");
-        },
       };
 
       sb.scopedCommands["shutdown"] = {
         alwaysDeny: true,
       };
-    });
-
-    it("should return command from preWrapHook", async () => {
-      const command = await sb.getWrappedCommand("npm install");
-      expect(command).toMatch("pnpm install");
     });
 
     it("should throw when allow === false", async () => {
@@ -58,23 +50,6 @@ describe("ScopedSandbox", () => {
       await expect(freshSb.getWrappedCommand("echo hello")).rejects.toThrow(
         `ScopedSandbox: echo hello has been blocked due to "alwaysDeny: true" in "default" configuration`,
       );
-    });
-
-    it("should pass preWrapHook result to wrapWithSandbox", async () => {
-      const freshSb = new ScopedSandbox({ alwaysDeny: false });
-      freshSb.scopedCommands["npm"] = {
-        alwaysDeny: false,
-        preWrapHook: async (cmd) => cmd.replace("npm", "pnpm"),
-      };
-      const spy = vi
-        .spyOn(SandboxManager, "wrapWithSandbox")
-        .mockResolvedValue("wrapped");
-      try {
-        await freshSb.getWrappedCommand("npm install");
-        expect(spy).toHaveBeenCalledWith("pnpm install", undefined, undefined);
-      } finally {
-        spy.mockRestore();
-      }
     });
 
     it("should pass runtimeConfig to wrapWithSandbox", async () => {
@@ -133,7 +108,7 @@ describe("ScopedSandbox", () => {
       addtestConfig("pnpm add -D");
       sb.scopedCommands["npm"] = {
         alwaysDeny: true,
-        preWrapHook: async (cmd) => {
+        approvalAssertion: async (cmd) => {
           return cmd.replace("npm", "pnpm");
         },
       };

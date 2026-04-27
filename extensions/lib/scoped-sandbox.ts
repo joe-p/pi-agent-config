@@ -28,11 +28,11 @@ export type CommandConfig = {
   alwaysDeny: boolean;
   /** srt runtime configuration for this specific command */
   runtimeConfig?: Partial<SandboxRuntimeConfig>;
-  /** Callback that may return a modified command */
-  preWrapHook?: (
+  /** Callback that may conditionally approve or deny a command. If the function does not throw, it is considered an approval */
+  approvalAssertion?: (
     command: string,
     parentCommand: ParentCommand,
-  ) => Promise<string>;
+  ) => Promise<void>;
 };
 
 export class ScopedSandbox {
@@ -83,11 +83,10 @@ export class ScopedSandbox {
 
     const parentCommand: ParentCommand = { command, id: crypto.randomUUID() };
 
-    // TODO: merge runtime configs?
+    // TODO: merge runtime configs
     const runtimeConfig =
       this.getCommandConfig(command)?.config.runtimeConfig ??
       this.defaultConfig.runtimeConfig;
-    const cmdParts: string[] = [];
 
     for (const e of parse(command)) {
       if (typeof e === "string") {
@@ -102,18 +101,14 @@ export class ScopedSandbox {
           );
         }
 
-        cmdParts.push(
-          config.preWrapHook ? await config.preWrapHook(e, parentCommand) : e,
-        );
-      } else if ("op" in e && e.op == "glob") {
-        cmdParts.push(e.pattern);
-      } else if ("op" in e) {
-        cmdParts.push(e.op);
+        if (config.approvalAssertion) {
+          await config.approvalAssertion(e, parentCommand);
+        }
       }
     }
 
     return await SandboxManager.wrapWithSandbox(
-      cmdParts.join(" "),
+      command,
       undefined,
       runtimeConfig,
     );
