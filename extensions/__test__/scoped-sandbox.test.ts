@@ -9,27 +9,28 @@ describe("ScopedSandbox", () => {
     let sb: ScopedSandbox;
 
     beforeAll(async () => {
-      sb = new ScopedSandbox({ alwaysDeny: false });
+      sb = new ScopedSandbox({ alwayDenyWithMessage: false });
 
       sb.scopedCommands["npm"] = {
-        alwaysDeny: false,
+        alwayDenyWithMessage: false,
       };
 
       sb.scopedCommands["shutdown"] = {
-        alwaysDeny: true,
+        alwayDenyWithMessage:
+          "shutdown has been blocked due to alwaysDeny configuration",
       };
     });
 
     it("should throw when allow === false", async () => {
       await expect(sb.getWrappedCommand("shutdown")).rejects.toThrow(
-        `ScopedSandbox: shutdown has been blocked due to "alwaysDeny: true" in "shutdown" configuration`,
+        `ScopedSandbox [shutdown]: shutdown has been blocked due to alwaysDeny configuration`,
       );
     });
 
     it("should throw when ScopedSandbox is not initialized", async () => {
       const original = ScopedSandbox.initialized;
       ScopedSandbox.initialized = false;
-      const freshSb = new ScopedSandbox({ alwaysDeny: false });
+      const freshSb = new ScopedSandbox({ alwayDenyWithMessage: false });
       try {
         await expect(freshSb.getWrappedCommand("echo hi")).rejects.toThrow(
           "Must call ScopedSandbox.initialize first!",
@@ -40,22 +41,25 @@ describe("ScopedSandbox", () => {
     });
 
     it("should use default config when no scoped command matches", async () => {
-      const freshSb = new ScopedSandbox({ alwaysDeny: false });
+      const freshSb = new ScopedSandbox({ alwayDenyWithMessage: false });
       const command = await freshSb.getWrappedCommand("echo hello");
       expect(command).toMatch("echo hello");
     });
 
-    it("should throw with default config when alwaysDeny is true and no scoped match", async () => {
-      const freshSb = new ScopedSandbox({ alwaysDeny: true });
+    it("should throw with default config when alwayDenyWithMessage is set and no scoped match", async () => {
+      const freshSb = new ScopedSandbox({
+        alwayDenyWithMessage:
+          "echo hello has been blocked due to alwaysDeny configuration",
+      });
       await expect(freshSb.getWrappedCommand("echo hello")).rejects.toThrow(
-        `ScopedSandbox: echo hello has been blocked due to "alwaysDeny: true" in "default" configuration`,
+        `ScopedSandbox [default]: echo hello has been blocked due to alwaysDeny configuration`,
       );
     });
 
     it("should pass runtimeConfig to wrapWithSandbox", async () => {
-      const freshSb = new ScopedSandbox({ alwaysDeny: false });
+      const freshSb = new ScopedSandbox({ alwayDenyWithMessage: false });
       freshSb.scopedCommands["test"] = {
-        alwaysDeny: false,
+        alwayDenyWithMessage: false,
         runtimeConfig: {
           filesystem: {
             allowRead: ["/tmp"],
@@ -88,10 +92,11 @@ describe("ScopedSandbox", () => {
     let sb: ScopedSandbox;
 
     beforeAll(async () => {
-      sb = new ScopedSandbox({ alwaysDeny: false });
+      sb = new ScopedSandbox({ alwayDenyWithMessage: false });
       const addtestConfig = (command: string) => {
         sb.scopedCommands[command] = {
-          alwaysDeny: true,
+          alwayDenyWithMessage:
+            "command has been blocked due to alwaysDeny configuration",
           runtimeConfig: {
             filesystem: {
               allowRead: [command],
@@ -107,10 +112,8 @@ describe("ScopedSandbox", () => {
       addtestConfig("pnpm add");
       addtestConfig("pnpm add -D");
       sb.scopedCommands["npm"] = {
-        alwaysDeny: true,
-        approvalAssertion: async (cmd) => {
-          return cmd.replace("npm", "pnpm");
-        },
+        alwayDenyWithMessage:
+          "command has been blocked due to alwaysDeny configuration",
       };
     });
 
@@ -119,8 +122,11 @@ describe("ScopedSandbox", () => {
     });
 
     it("should not match partial words", () => {
-      const freshSb = new ScopedSandbox({ alwaysDeny: false });
-      freshSb.scopedCommands["npm"] = { alwaysDeny: true };
+      const freshSb = new ScopedSandbox({ alwayDenyWithMessage: false });
+      freshSb.scopedCommands["npm"] = {
+        alwayDenyWithMessage:
+          "npm has been blocked due to alwaysDeny configuration",
+      };
       expect(freshSb.getCommandConfig("npx install")).toBeUndefined();
     });
 

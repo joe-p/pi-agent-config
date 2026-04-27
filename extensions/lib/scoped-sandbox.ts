@@ -25,7 +25,7 @@ export type CommandConfig = {
    * always deny a command when it matches this config.
    * It should be noted that when this is false the `preWrapHook` can still throw and prevent the command from running
    */
-  alwaysDeny: boolean;
+  alwayDenyWithMessage: string | false;
   /** srt runtime configuration for this specific command */
   runtimeConfig?: Partial<SandboxRuntimeConfig>;
   /** Callback that may conditionally approve or deny a command. If the function does not throw, it is considered an approval */
@@ -95,9 +95,9 @@ export class ScopedSandbox {
           matchedKey: "default",
         };
 
-        if (config.alwaysDeny) {
+        if (config.alwayDenyWithMessage) {
           throw Error(
-            `ScopedSandbox: ${command} has been blocked due to "alwaysDeny: true" in "${matchedKey}" configuration`,
+            `ScopedSandbox [${matchedKey}]: ${config.alwayDenyWithMessage}`,
           );
         }
 

@@ -141,7 +141,7 @@ class SandboxWithContext {
 
     this.sandboxes = {
       build: new ScopedSandbox({
-        alwaysDeny: false,
+        alwayDenyWithMessage: false,
         runtimeConfig: {
           filesystem: {
             allowRead: [],
@@ -152,7 +152,7 @@ class SandboxWithContext {
         },
       }),
       plan: new ScopedSandbox({
-        alwaysDeny: false,
+        alwayDenyWithMessage: false,
         runtimeConfig: {
           filesystem: {
             allowRead: [],
@@ -164,10 +164,16 @@ class SandboxWithContext {
       }),
     };
 
+    const allowedGitCmds = ["diff", "grep", "log", "show", "status"];
+
     ["build", "plan"].forEach((mode) => {
-      ["diff", "grep", "log", "show", "status"].forEach((c) => {
-        this.sandboxes[mode].scopedCommands[`git ${c}`] = {
-          alwaysDeny: false,
+      this.sandboxes[mode as Mode].scopedCommands["git"] = {
+        alwayDenyWithMessage: `This git command is not allowed. The allowed commands are ${allowedGitCmds}. As an agent, you should only use read-only git commands. If you think this is a mistake, inform the user and ask them to allow the sub-command you are trying to use`,
+      };
+
+      allowedGitCmds.forEach((c) => {
+        this.sandboxes[mode as Mode].scopedCommands[`git ${c}`] = {
+          alwayDenyWithMessage: false,
           runtimeConfig: {
             filesystem: {
               allowRead: ["~/.gitconfig"],
