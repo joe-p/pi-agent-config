@@ -9,7 +9,7 @@ const GLOBAL_CONFIG: SandboxRuntimeConfig = {
     deniedDomains: [],
   },
   filesystem: {
-    allowRead: ["."],
+    allowRead: [],
     denyRead: ["*.env", "*.pem", "*.key"],
     allowWrite: [],
     denyWrite: [],

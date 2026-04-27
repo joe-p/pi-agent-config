@@ -74,11 +74,8 @@ import {
   writeFileSync,
 } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, join, resolve, matchesGlob } from "node:path";
-import {
-  SandboxManager,
-  type SandboxRuntimeConfig,
-} from "@anthropic-ai/sandbox-runtime";
+import { dirname, join, resolve } from "node:path";
+import { type SandboxRuntimeConfig } from "@anthropic-ai/sandbox-runtime";
 import type {
   ExtensionAPI,
   ExtensionContext,
@@ -88,31 +85,101 @@ import {
   createBashTool,
   isToolCallEventType,
 } from "@mariozechner/pi-coding-agent";
+import { ScopedSandbox } from "./lib/scoped-sandbox";
 
-interface SandboxConfig extends SandboxRuntimeConfig {
-  enabled?: boolean;
-}
-
-const DEFAULT_CONFIG: SandboxConfig = {
-  enabled: true,
+const DEFAULT_CONFIG: SandboxRuntimeConfig = {
   network: {
     allowedDomains: [],
     deniedDomains: [],
   },
   filesystem: {
     denyRead: ["/Users", "/home", ".env", ".env.*", "*.pem", "*.key"],
-    allowRead: [".", "~/.config", "~/.local", "~/.gitconfig"],
+    allowRead: [".", "~/.config", "~/.local"],
     allowWrite: [".", "/tmp"],
     denyWrite: [],
   },
 };
 
-export function loadConfig(cwd: string): SandboxConfig {
+await ScopedSandbox.initialize(DEFAULT_CONFIG);
+
+class SandboxWithContext {
+  public sandbox: ScopedSandbox;
+  public ctx?: ExtensionContext;
+
+  constructor() {
+    this.sandbox = new ScopedSandbox({
+      alwaysDeny: false,
+      preWrapHook: async (command, config) => {
+        if (!this.ctx) {
+          throw Error("Failed to get ctx!");
+        }
+
+        const choice = await this.ctx.ui.select(
+          `[sandbox] run command?: ${command}`,
+          ["No, do not run this command", "Yes, run this command"],
+        );
+
+        if (!choice?.startsWith("Yes")) {
+          throw Error(
+            `Bash command rejected by user: ${command}. Ask them how they want to proceed.`,
+          );
+        }
+        return command;
+      },
+    });
+
+    // allowed git subcommands
+    ["diff", "grep", "log", "show", "status"].forEach((c) => {
+      this.sandbox.scopedCommands[`git ${c}`] = {
+        alwaysDeny: false,
+        runtimeConfig: {
+          filesystem: {
+            allowRead: ["~/.gitconfig"],
+            allowWrite: [],
+            denyRead: [],
+            denyWrite: [],
+          },
+        },
+      };
+    });
+
+    // well-known bash commands
+    ["cat", "echo", "grep", "rg", "tail", "less", "more", "wc"].forEach((c) => {
+      this.sandbox.scopedCommands[c] = {
+        alwaysDeny: false,
+        preWrapHook: async (command, _config) => {
+          if (!this.ctx) {
+            throw Error("Failed to get ctx!");
+          }
+
+          // If this includes piping to a file, ask the user
+          if (command.includes("|") || command.includes(">")) {
+            const choice = await this.ctx.ui.select(
+              `[sandbox] run command?: ${command}`,
+              ["No, do not run this command", "Yes, run this command"],
+            );
+
+            if (!choice?.startsWith("Yes")) {
+              throw Error(
+                `Bash command rejected by user: ${command}. Ask them how they want to proceed.`,
+              );
+            }
+          }
+          return command;
+        },
+      };
+    });
+  }
+}
+
+const sandbox = new SandboxWithContext();
+
+export function loadConfig(cwd: string): SandboxRuntimeConfig {
   const projectConfigPath = join(cwd, ".pi", "sandbox.json");
   const globalConfigPath = join(homedir(), ".pi", "agent", "sandbox.json");
 
-  let globalConfig: Partial<SandboxConfig> = {};
-  let projectConfig: Partial<SandboxConfig> = {};
+  let globalConfig: Partial<SandboxRuntimeConfig> = {};
+  let projectConfig: Partial<SandboxRuntimeConfig> = {};
 
   if (existsSync(globalConfigPath)) {
     try {
@@ -134,12 +201,11 @@ export function loadConfig(cwd: string): SandboxConfig {
 }
 
 function deepMerge(
-  base: SandboxConfig,
-  overrides: Partial<SandboxConfig>,
-): SandboxConfig {
-  const result: SandboxConfig = { ...base };
+  base: SandboxRuntimeConfig,
+  overrides: Partial<SandboxRuntimeConfig>,
+): SandboxRuntimeConfig {
+  const result: SandboxRuntimeConfig = { ...base };
 
-  if (overrides.enabled !== undefined) result.enabled = overrides.enabled;
   if (overrides.network) {
     result.network = { ...base.network, ...overrides.network };
   }
@@ -269,14 +335,15 @@ function matchesPattern(filePath: string, patterns: string[]): boolean {
 
 // ── Sandboxed bash ops ────────────────────────────────────────────────────────
 
-function createSandboxedBashOps(): BashOperations {
+function createSandboxedBashOps(ctx: ExtensionContext): BashOperations {
   return {
     async exec(command, cwd, { onData, signal, timeout, env }) {
       if (!existsSync(cwd)) {
         throw new Error(`Working directory does not exist: ${cwd}`);
       }
 
-      const wrappedCommand = await SandboxManager.wrapWithSandbox(command);
+      sandbox.ctx = ctx;
+      const wrappedCommand = await sandbox.sandbox.getWrappedCommand(command);
 
       return new Promise((resolve, reject) => {
         const child = spawn("bash", ["-c", wrappedCommand], {
@@ -347,15 +414,6 @@ export const sessionAllowedDomains: string[] = [];
 export const sessionAllowedReadPaths: string[] = [];
 export const sessionAllowedWritePaths: string[] = [];
 
-// Callback for reinitializing the OS-level sandbox (set by default export)
-let reinitializeSandboxFn: ((cwd: string) => Promise<void>) | null = null;
-
-export function setReinitializeSandboxFn(
-  fn: (cwd: string) => Promise<void>,
-): void {
-  reinitializeSandboxFn = fn;
-}
-
 // ── Config helpers ───────────────────────────────────────────────────────────
 
 function getConfigPaths(cwd: string): {
@@ -368,7 +426,7 @@ function getConfigPaths(cwd: string): {
   };
 }
 
-function readOrEmptyConfig(configPath: string): Partial<SandboxConfig> {
+function readOrEmptyConfig(configPath: string): Partial<SandboxRuntimeConfig> {
   if (!existsSync(configPath)) return {};
   try {
     return JSON.parse(readFileSync(configPath, "utf-8"));
@@ -379,7 +437,7 @@ function readOrEmptyConfig(configPath: string): Partial<SandboxConfig> {
 
 function writeConfigFile(
   configPath: string,
-  config: Partial<SandboxConfig>,
+  config: Partial<SandboxRuntimeConfig>,
 ): void {
   mkdirSync(dirname(configPath), { recursive: true });
   // Atomic write: write to temp file, then rename
@@ -547,9 +605,6 @@ export async function applyDomainChoice(
     sessionAllowedDomains.push(domain);
   if (choice === "project") addDomainToConfig(projectPath, domain);
   if (choice === "global") addDomainToConfig(globalPath, domain);
-  if (reinitializeSandboxFn) {
-    await reinitializeSandboxFn(cwd);
-  }
 }
 
 export async function applyReadChoice(
@@ -562,9 +617,6 @@ export async function applyReadChoice(
     sessionAllowedReadPaths.push(filePath);
   if (choice === "project") addReadPathToConfig(projectPath, filePath);
   if (choice === "global") addReadPathToConfig(globalPath, filePath);
-  if (reinitializeSandboxFn) {
-    await reinitializeSandboxFn(cwd);
-  }
 }
 
 export async function applyWriteChoice(
@@ -577,9 +629,6 @@ export async function applyWriteChoice(
     sessionAllowedWritePaths.push(filePath);
   if (choice === "project") addWritePathToConfig(projectPath, filePath);
   if (choice === "global") addWritePathToConfig(globalPath, filePath);
-  if (reinitializeSandboxFn) {
-    await reinitializeSandboxFn(cwd);
-  }
 }
 
 // ── Extension ─────────────────────────────────────────────────────────────────
@@ -594,48 +643,6 @@ export default function (pi: ExtensionAPI) {
   const localCwd = process.cwd();
   const localBash = createBashTool(localCwd);
 
-  let sandboxEnabled = false;
-  let sandboxInitialized = false;
-
-  // ── Sandbox reinitialize ────────────────────────────────────────────────────
-  // Called after granting a session/permanent allowance so the OS-level sandbox
-  // picks up the new rules before the next bash subprocess starts.
-  // Registers itself as the reinitialization callback for module-level functions.
-
-  async function reinitializeSandbox(cwd: string): Promise<void> {
-    if (!sandboxInitialized) return;
-    const config = loadConfig(cwd);
-    try {
-      await SandboxManager.reset();
-      await SandboxManager.initialize({
-        network: {
-          ...config.network,
-          allowedDomains: [
-            ...(config.network?.allowedDomains ?? []),
-            ...sessionAllowedDomains,
-          ],
-          deniedDomains: config.network?.deniedDomains ?? [],
-        },
-        filesystem: {
-          ...config.filesystem,
-          denyRead: config.filesystem?.denyRead ?? [],
-          allowRead: config.filesystem?.allowRead ?? [],
-          allowWrite: [
-            ...(config.filesystem?.allowWrite ?? []),
-            ...sessionAllowedWritePaths,
-          ],
-          denyWrite: config.filesystem?.denyWrite ?? [],
-        },
-        enableWeakerNetworkIsolation: true,
-      });
-    } catch (e) {
-      console.error(`Warning: Failed to reinitialize sandbox: ${e}`);
-    }
-  }
-
-  // Register the reinitialization callback so module-level exports can use it
-  setReinitializeSandboxFn(reinitializeSandbox);
-
   // ── Bash tool — with write-block detection and retry ───────────────────────
 
   pi.registerTool({
@@ -643,11 +650,8 @@ export default function (pi: ExtensionAPI) {
     label: "bash (sandboxed)",
     async execute(id, params, signal, onUpdate, ctx) {
       const runBash = () => {
-        if (!sandboxEnabled || !sandboxInitialized) {
-          return localBash.execute(id, params, signal, onUpdate);
-        }
         const sandboxedBash = createBashTool(localCwd, {
-          operations: createSandboxedBashOps(),
+          operations: createSandboxedBashOps(ctx),
         });
         return sandboxedBash.execute(id, params, signal, onUpdate);
       };
@@ -655,7 +659,7 @@ export default function (pi: ExtensionAPI) {
       const result = await runBash();
 
       // Post-execution: detect OS-level write block and offer to allow.
-      if (sandboxEnabled && sandboxInitialized && ctx?.hasUI) {
+      if (ctx?.hasUI) {
         const outputText = result.content
           .filter((c: any) => c.type === "text")
           .map((c: any) => c.text)
@@ -702,8 +706,6 @@ export default function (pi: ExtensionAPI) {
   // ── user_bash — network pre-check ──────────────────────────────────────────
 
   pi.on("user_bash", async (event, ctx) => {
-    if (!sandboxEnabled || !sandboxInitialized) return;
-
     const domains = extractDomainsFromCommand(event.command);
     const effectiveDomains = getEffectiveAllowedDomains(ctx.cwd);
 
@@ -724,38 +726,15 @@ export default function (pi: ExtensionAPI) {
       }
     }
 
-    return { operations: createSandboxedBashOps() };
+    return { operations: createSandboxedBashOps(ctx) };
   });
 
   // ── tool_call — network pre-check for bash, path policy for read/write/edit
 
   pi.on("tool_call", async (event, ctx) => {
     const config = loadConfig(ctx.cwd);
-    if (!config.enabled) return;
 
     const { projectPath, globalPath } = getConfigPaths(ctx.cwd);
-
-    // Network pre-check for bash tool calls.
-    if (
-      sandboxEnabled &&
-      sandboxInitialized &&
-      isToolCallEventType("bash", event)
-    ) {
-      const domains = extractDomainsFromCommand(event.input.command);
-      const effectiveDomains = getEffectiveAllowedDomains(ctx.cwd);
-      for (const domain of domains) {
-        if (!domainIsAllowed(domain, effectiveDomains)) {
-          const choice = await promptDomainBlock(ctx, domain);
-          if (choice === "abort") {
-            return {
-              block: true,
-              reason: `Network access to "${domain}" is blocked (not in allowedDomains).`,
-            };
-          }
-          await applyDomainChoice(choice, domain, ctx.cwd);
-        }
-      }
-    }
 
     // Path policy: read tool.
     //   - If the path is already in effectiveAllowRead, allow silently.
@@ -834,41 +813,17 @@ export default function (pi: ExtensionAPI) {
     const noSandbox = pi.getFlag("no-sandbox") as boolean;
 
     if (noSandbox) {
-      sandboxEnabled = false;
       ctx.ui.notify("Sandbox disabled via --no-sandbox", "warning");
-      return;
-    }
-
-    const config = loadConfig(ctx.cwd);
-
-    if (!config.enabled) {
-      sandboxEnabled = false;
-      ctx.ui.notify("Sandbox disabled via config", "info");
       return;
     }
 
     const platform = process.platform;
     if (platform !== "darwin" && platform !== "linux") {
-      sandboxEnabled = false;
       ctx.ui.notify(`Sandbox not supported on ${platform}`, "warning");
       return;
     }
 
     try {
-      const configExt = config as unknown as {
-        ignoreViolations?: Record<string, string[]>;
-        enableWeakerNestedSandbox?: boolean;
-        allowBrowserProcess?: boolean;
-      };
-
-      await SandboxManager.initialize({
-        network: config.network,
-        filesystem: config.filesystem,
-        ignoreViolations: configExt.ignoreViolations,
-        enableWeakerNestedSandbox: configExt.enableWeakerNestedSandbox,
-        enableWeakerNetworkIsolation: true,
-      });
-
       // Make Node's built-in fetch() honour HTTP_PROXY / HTTPS_PROXY in this
       // process and any child processes that inherit the environment.
       // undici (which powers globalThis.fetch) ignores proxy env vars by default;
@@ -883,28 +838,12 @@ export default function (pi: ExtensionAPI) {
           : "--use-env-proxy";
       }
 
-      sandboxEnabled = true;
-      sandboxInitialized = true;
-
       ctx.ui.setStatus("sandbox", ctx.ui.theme.fg("accent", `🔒`));
     } catch (err) {
-      sandboxEnabled = false;
       ctx.ui.notify(
         `Sandbox initialization failed: ${err instanceof Error ? err.message : err}`,
         "error",
       );
-    }
-  });
-
-  // ── session_shutdown ────────────────────────────────────────────────────────
-
-  pi.on("session_shutdown", async () => {
-    if (sandboxInitialized) {
-      try {
-        await SandboxManager.reset();
-      } catch {
-        // Ignore cleanup errors
-      }
     }
   });
 
@@ -913,12 +852,6 @@ export default function (pi: ExtensionAPI) {
   pi.registerCommand("sandbox-enable", {
     description: "Enable the sandbox for this session",
     handler: async (_args, ctx) => {
-      if (sandboxEnabled) {
-        ctx.ui.notify("Sandbox is already enabled", "info");
-        return;
-      }
-
-      const config = loadConfig(ctx.cwd);
       const platform = process.platform;
       if (platform !== "darwin" && platform !== "linux") {
         ctx.ui.notify(`Sandbox not supported on ${platform}`, "warning");
@@ -926,23 +859,6 @@ export default function (pi: ExtensionAPI) {
       }
 
       try {
-        const configExt = config as unknown as {
-          ignoreViolations?: Record<string, string[]>;
-          enableWeakerNestedSandbox?: boolean;
-          allowBrowserProcess?: boolean;
-        };
-
-        await SandboxManager.initialize({
-          network: config.network,
-          filesystem: config.filesystem,
-          ignoreViolations: configExt.ignoreViolations,
-          enableWeakerNestedSandbox: configExt.enableWeakerNestedSandbox,
-          enableWeakerNetworkIsolation: true,
-        });
-
-        sandboxEnabled = true;
-        sandboxInitialized = true;
-
         ctx.ui.setStatus("sandbox", ctx.ui.theme.fg("accent", `🔒`));
         ctx.ui.notify("Sandbox enabled", "info");
       } catch (err) {
@@ -957,21 +873,6 @@ export default function (pi: ExtensionAPI) {
   pi.registerCommand("sandbox-disable", {
     description: "Disable the sandbox for this session",
     handler: async (_args, ctx) => {
-      if (!sandboxEnabled) {
-        ctx.ui.notify("Sandbox is already disabled", "info");
-        return;
-      }
-
-      if (sandboxInitialized) {
-        try {
-          await SandboxManager.reset();
-        } catch {
-          // Ignore cleanup errors
-        }
-      }
-
-      sandboxEnabled = false;
-      sandboxInitialized = false;
       ctx.ui.setStatus("sandbox", "");
       ctx.ui.notify("Sandbox disabled", "info");
     },
@@ -980,11 +881,6 @@ export default function (pi: ExtensionAPI) {
   pi.registerCommand("sandbox", {
     description: "Show sandbox configuration",
     handler: async (_args, ctx) => {
-      if (!sandboxEnabled) {
-        ctx.ui.notify("Sandbox is disabled", "info");
-        return;
-      }
-
       const config = loadConfig(ctx.cwd);
       const { globalPath, projectPath } = getConfigPaths(ctx.cwd);
 
