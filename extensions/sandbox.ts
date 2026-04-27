@@ -847,37 +847,6 @@ export default function (pi: ExtensionAPI) {
     }
   });
 
-  // ── /sandbox command ────────────────────────────────────────────────────────
-
-  pi.registerCommand("sandbox-enable", {
-    description: "Enable the sandbox for this session",
-    handler: async (_args, ctx) => {
-      const platform = process.platform;
-      if (platform !== "darwin" && platform !== "linux") {
-        ctx.ui.notify(`Sandbox not supported on ${platform}`, "warning");
-        return;
-      }
-
-      try {
-        ctx.ui.setStatus("sandbox", ctx.ui.theme.fg("accent", `🔒`));
-        ctx.ui.notify("Sandbox enabled", "info");
-      } catch (err) {
-        ctx.ui.notify(
-          `Sandbox initialization failed: ${err instanceof Error ? err.message : err}`,
-          "error",
-        );
-      }
-    },
-  });
-
-  pi.registerCommand("sandbox-disable", {
-    description: "Disable the sandbox for this session",
-    handler: async (_args, ctx) => {
-      ctx.ui.setStatus("sandbox", "");
-      ctx.ui.notify("Sandbox disabled", "info");
-    },
-  });
-
   pi.registerCommand("sandbox", {
     description: "Show sandbox configuration",
     handler: async (_args, ctx) => {
