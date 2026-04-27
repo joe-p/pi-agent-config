@@ -5,20 +5,14 @@ import {
 import { parse } from "shell-quote";
 import crypto from "crypto";
 
-const DEFAULT_GLOBAL_CONFIG: SandboxRuntimeConfig = {
-  network: {
-    allowedDomains: [],
-    deniedDomains: [],
-  },
-  filesystem: {
-    allowRead: [],
-    denyRead: ["*.env", "*.pem", "*.key"],
-    allowWrite: [],
-    denyWrite: [],
-  },
-};
-
 export type ParentCommand = { command: string; id: string };
+
+export function emptyRuntimeConfig(): SandboxRuntimeConfig {
+  return {
+    network: { allowedDomains: [], deniedDomains: [] },
+    filesystem: { allowWrite: [], denyRead: [], denyWrite: [], allowRead: [] },
+  };
+}
 
 export type CommandConfig = {
   /**
@@ -27,7 +21,7 @@ export type CommandConfig = {
    */
   alwayDenyWithMessage: string | false;
   /** srt runtime configuration for this specific command */
-  runtimeConfig?: Partial<SandboxRuntimeConfig>;
+  runtimeConfig: SandboxRuntimeConfig;
   /** Callback that may conditionally approve or deny a command. If the function does not throw, it is considered an approval */
   approvalAssertion?: (
     command: string,
@@ -35,20 +29,17 @@ export type CommandConfig = {
   ) => Promise<void>;
 };
 
+/**
+ * Initialize the sandbox and wait for the network to be ready.
+ * Ideally we'd just pass configs to the wrap command, but it doesn't respect network settings
+ */
+async function initialize(config: SandboxRuntimeConfig) {
+  await SandboxManager.initialize(config);
+  await SandboxManager.waitForNetworkInitialization();
+}
+
 export class ScopedSandbox {
   scopedCommands: Record<string, CommandConfig> = {};
-
-  static initialized: boolean = false;
-
-  static async initialize(globalConfig?: SandboxRuntimeConfig) {
-    if (ScopedSandbox.initialized) {
-      throw Error("Initialize can only be called once!");
-    }
-    ScopedSandbox.initialized = true;
-
-    await SandboxManager.initialize(globalConfig || DEFAULT_GLOBAL_CONFIG);
-    await SandboxManager.waitForNetworkInitialization();
-  }
 
   constructor(public defaultConfig: CommandConfig) {}
 
@@ -76,17 +67,22 @@ export class ScopedSandbox {
     return { config: this.scopedCommands[matches[0]], matchedKey: matches[0] };
   }
 
-  async getWrappedCommand(command: string): Promise<string> {
-    if (!ScopedSandbox.initialized) {
-      throw Error("Must call ScopedSandbox.initialize first!");
-    }
-
+  // TODO: put this behind mutex
+  async withWrappedCommand(
+    command: string,
+    cb: (wrappedCommand: string) => Promise<void>,
+  ): Promise<void> {
     const parentCommand: ParentCommand = { command, id: crypto.randomUUID() };
 
     // TODO: merge runtime configs
     const runtimeConfig =
       this.getCommandConfig(command)?.config.runtimeConfig ??
       this.defaultConfig.runtimeConfig;
+
+    const initPromise = initialize(runtimeConfig);
+    // After initialization, update config with the runtime config
+    // This ensures command-specific configurations (like allowedDomains) are applied
+    SandboxManager.updateConfig(runtimeConfig);
 
     for (const e of parse(command)) {
       if (typeof e === "string") {
@@ -107,10 +103,13 @@ export class ScopedSandbox {
       }
     }
 
-    return await SandboxManager.wrapWithSandbox(
+    const wrappedCmd = await SandboxManager.wrapWithSandbox(
       command,
       undefined,
       runtimeConfig,
     );
+
+    await initPromise;
+    await cb(wrappedCmd);
   }
 }
