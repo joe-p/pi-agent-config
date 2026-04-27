@@ -3,6 +3,7 @@ import {
   type SandboxRuntimeConfig,
 } from "@anthropic-ai/sandbox-runtime";
 import { parse } from "shell-quote";
+import crypto from "crypto";
 
 const GLOBAL_CONFIG: SandboxRuntimeConfig = {
   network: {
@@ -17,6 +18,8 @@ const GLOBAL_CONFIG: SandboxRuntimeConfig = {
   },
 };
 
+export type ParentCommand = { command: string; id: string };
+
 export type CommandConfig = {
   /**
    * always deny a command when it matches this config.
@@ -26,7 +29,10 @@ export type CommandConfig = {
   /** srt runtime configuration for this specific command */
   runtimeConfig?: Partial<SandboxRuntimeConfig>;
   /** Callback that may return a modified command */
-  preWrapHook?: (command: string) => Promise<string>;
+  preWrapHook?: (
+    command: string,
+    parentCommand: ParentCommand,
+  ) => Promise<string>;
 };
 
 export class ScopedSandbox {
@@ -75,6 +81,8 @@ export class ScopedSandbox {
       throw Error("Must call ScopedSandbox.initialize first!");
     }
 
+    const parentCommand: ParentCommand = { command, id: crypto.randomUUID() };
+
     // TODO: merge runtime configs?
     const runtimeConfig =
       this.getCommandConfig(command)?.config.runtimeConfig ??
@@ -94,7 +102,9 @@ export class ScopedSandbox {
           );
         }
 
-        cmdParts.push(config.preWrapHook ? await config.preWrapHook(e) : e);
+        cmdParts.push(
+          config.preWrapHook ? await config.preWrapHook(e, parentCommand) : e,
+        );
       } else if ("op" in e && e.op == "glob") {
         cmdParts.push(e.pattern);
       } else if ("op" in e) {
