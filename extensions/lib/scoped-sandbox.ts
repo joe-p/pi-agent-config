@@ -12,7 +12,7 @@ export function emptyRuntimeConfig(): SandboxRuntimeConfig {
     network: { allowedDomains: [], deniedDomains: [] },
     filesystem: {
       allowWrite: [],
-      denyRead: ["/Users/"],
+      denyRead: [],
       denyWrite: [],
       allowRead: [],
     },
@@ -43,10 +43,23 @@ async function initialize(config: SandboxRuntimeConfig) {
   await SandboxManager.waitForNetworkInitialization();
 }
 
+export type MandatoryConfig = {
+  filesystem: {
+    denyRead: string[];
+    allowWrite: string[];
+    denyWrite: string[];
+    allowRead?: string[] | undefined;
+  };
+  network: { allowedDomains: string[]; deniedDomains: string[] };
+};
+
 export class ScopedSandbox {
   scopedCommands: Record<string, CommandConfig> = {};
 
-  constructor(public defaultConfig: CommandConfig) {}
+  constructor(
+    public defaultConfig: CommandConfig,
+    private mandatoryConfig: MandatoryConfig,
+  ) {}
 
   /**
    * Get the scoped config for the most specific match in scopedCommands
@@ -70,6 +83,19 @@ export class ScopedSandbox {
 
     matches.sort((a, b) => b.split(" ").length - a.split(" ").length);
     const matchedKey = matches[0]!;
+
+    const config = this.scopedCommands[matchedKey]!;
+    const rtConfig = config.runtimeConfig;
+    const mConfig = this.mandatoryConfig;
+
+    rtConfig.network.allowedDomains.push(...mConfig.network.allowedDomains);
+    rtConfig.network.deniedDomains.push(...mConfig.network.deniedDomains);
+    rtConfig.filesystem.denyRead.push(...mConfig.filesystem.denyRead);
+    rtConfig.filesystem.denyWrite.push(...mConfig.filesystem.denyWrite);
+    rtConfig.filesystem.allowWrite.push(...mConfig.filesystem.allowWrite);
+    rtConfig.filesystem.allowRead = rtConfig.filesystem.allowRead ?? [];
+    rtConfig.filesystem.allowRead.push(...(mConfig.filesystem.allowRead || []));
+
     return { config: this.scopedCommands[matchedKey]!, matchedKey };
   }
 
@@ -84,9 +110,6 @@ export class ScopedSandbox {
     const runtimeConfig =
       this.getCommandConfig(command)?.config.runtimeConfig ??
       this.defaultConfig.runtimeConfig;
-
-    if (runtimeConfig.filesystem.denyRead.includes("/Users/"))
-      runtimeConfig.filesystem.denyRead.push("/Users/");
 
     const initPromise = initialize(runtimeConfig);
     // After initialization, update config with the runtime config

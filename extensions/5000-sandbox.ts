@@ -88,6 +88,7 @@ import {
 import {
   CommandConfig,
   emptyRuntimeConfig,
+  MandatoryConfig,
   ParentCommand,
   ScopedSandbox,
 } from "./lib/scoped-sandbox";
@@ -96,16 +97,16 @@ import { Key } from "@mariozechner/pi-tui";
 import { TextContent } from "@mariozechner/pi-ai";
 
 /** Rules that are ALWAYS enforced */
-const GLOBAL_CONFIG: SandboxRuntimeConfig = {
+const MANDATORY_CONFIG: MandatoryConfig = {
   network: {
     allowedDomains: [],
     deniedDomains: [],
   },
   filesystem: {
-    denyRead: [".env", ".env.*", "*.pem", "*.key", ".pi", "~/.pi"],
+    denyRead: ["~/", ".env", ".env.*", "*.pem", "*.key", ".pi"],
     allowRead: [".", "~/.config", "~/.local"],
     allowWrite: [],
-    denyWrite: ["~/.git"],
+    denyWrite: [".git"],
   },
 };
 
@@ -154,22 +155,28 @@ class SandboxWithContext {
     this.activeMode = "build";
 
     this.sandboxes = {
-      build: new ScopedSandbox({
-        alwayDenyWithMessage: false,
-        runtimeConfig: {
-          ...emptyRuntimeConfig(),
-          filesystem: {
-            allowRead: [],
-            denyRead: [],
-            allowWrite: [".", "/tmp"],
-            denyWrite: [".git"],
+      build: new ScopedSandbox(
+        {
+          alwayDenyWithMessage: false,
+          runtimeConfig: {
+            ...emptyRuntimeConfig(),
+            filesystem: {
+              allowRead: [],
+              denyRead: [],
+              allowWrite: [".", "/tmp"],
+              denyWrite: [".git"],
+            },
           },
         },
-      }),
-      plan: new ScopedSandbox({
-        alwayDenyWithMessage: false,
-        runtimeConfig: emptyRuntimeConfig(),
-      }),
+        MANDATORY_CONFIG,
+      ),
+      plan: new ScopedSandbox(
+        {
+          alwayDenyWithMessage: false,
+          runtimeConfig: emptyRuntimeConfig(),
+        },
+        MANDATORY_CONFIG,
+      ),
     };
 
     const jsPackageManagers = ["npm", "deno", "bun"];
@@ -185,7 +192,7 @@ class SandboxWithContext {
           filesystem: {
             allowRead: ["."],
             allowWrite: [],
-            denyRead: GLOBAL_CONFIG.filesystem.denyRead,
+            denyRead: MANDATORY_CONFIG.filesystem.denyRead,
             denyWrite: [],
           },
           network: {
@@ -277,7 +284,7 @@ export function loadConfig(cwd: string): SandboxRuntimeConfig {
     }
   }
 
-  return deepMerge(deepMerge(GLOBAL_CONFIG, globalConfig), projectConfig);
+  return deepMerge(deepMerge(MANDATORY_CONFIG, globalConfig), projectConfig);
 }
 
 function deepMerge(
