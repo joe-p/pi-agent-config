@@ -103,7 +103,7 @@ const MANDATORY_CONFIG: MandatoryConfig = {
   },
   filesystem: {
     denyRead: ["~/", ".env", ".env.*", "*.pem", "*.key", ".pi"],
-    allowRead: [".", "~/.config", "~/.local"],
+    allowRead: ["~/.config", "~/.local"],
     allowWrite: [],
     denyWrite: [".git"],
   },
@@ -116,7 +116,7 @@ const sandboxes = {
       runtimeConfig: {
         ...emptyRuntimeConfig(),
         filesystem: {
-          allowRead: [],
+          allowRead: ["."],
           denyRead: [],
           allowWrite: [".", "/tmp"],
           denyWrite: [],
@@ -128,7 +128,15 @@ const sandboxes = {
   plan: new ScopedSandbox(
     {
       alwayDenyWithMessage: false,
-      runtimeConfig: emptyRuntimeConfig(),
+      runtimeConfig: {
+        ...emptyRuntimeConfig(),
+        filesystem: {
+          allowRead: ["."],
+          denyRead: [],
+          denyWrite: [],
+          allowWrite: [],
+        },
+      },
     },
     MANDATORY_CONFIG,
   ),
@@ -147,9 +155,9 @@ jsPackageManagers.forEach((pm) => {
     },
     runtimeConfig: {
       filesystem: {
-        allowRead: ["."],
+        allowRead: [],
         allowWrite: [],
-        denyRead: MANDATORY_CONFIG.filesystem.denyRead,
+        denyRead: [],
         denyWrite: [],
       },
       network: {
@@ -160,7 +168,7 @@ jsPackageManagers.forEach((pm) => {
   });
 
   jsInstallSubCommands.forEach((c) => {
-    sandbox.sandboxes["build"].scopedCommands[`${pm} ${c}`] = {
+    sandbox.addConfig("build", `${pm} ${c}`, {
       alwayDenyWithMessage: false,
       approvalAssertion: async (_, parentCommand) => {
         await sandbox.assertApproval(parentCommand);
@@ -186,31 +194,29 @@ jsPackageManagers.forEach((pm) => {
           deniedDomains: [],
         },
       },
-    };
+    });
   });
 });
 
 const allowedGitCmds = ["diff", "grep", "log", "show", "status"];
 
-["build", "plan"].forEach((mode) => {
-  sandbox.sandboxes[mode as SandboxMode].scopedCommands["git"] = {
-    runtimeConfig: emptyRuntimeConfig(),
-    alwayDenyWithMessage: `This git command is not allowed. The allowed commands are ${allowedGitCmds}. As an agent, you should only use read-only git commands. If you think this is a mistake, inform the user and ask them to allow the sub-command you are trying to use`,
-  };
+sandbox.addConfig("both", "git", {
+  runtimeConfig: emptyRuntimeConfig(),
+  alwayDenyWithMessage: `This git command is not allowed. The allowed commands are ${allowedGitCmds}. As an agent, you should only use read-only git commands. If you think this is a mistake, inform the user and ask them to allow the sub-command you are trying to use`,
+});
 
-  allowedGitCmds.forEach((c) => {
-    sandbox.sandboxes[mode as SandboxMode].scopedCommands[`git ${c}`] = {
-      alwayDenyWithMessage: false,
-      runtimeConfig: {
-        ...emptyRuntimeConfig(),
-        filesystem: {
-          allowRead: ["~/.gitconfig"],
-          allowWrite: [],
-          denyRead: [],
-          denyWrite: [],
-        },
+allowedGitCmds.forEach((c) => {
+  sandbox.addConfig("both", `git ${c}`, {
+    alwayDenyWithMessage: false,
+    runtimeConfig: {
+      ...emptyRuntimeConfig(),
+      filesystem: {
+        allowRead: ["~/.gitconfig"],
+        allowWrite: [],
+        denyRead: [],
+        denyWrite: [],
       },
-    };
+    },
   });
 });
 

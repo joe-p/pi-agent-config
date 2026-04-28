@@ -8,7 +8,9 @@ export class PiSandbox {
   private lastParentApproved?: string;
   private activeMode: SandboxMode;
 
-  constructor(public sandboxes: { plan: ScopedSandbox; build: ScopedSandbox }) {
+  constructor(
+    private sandboxes: { plan: ScopedSandbox; build: ScopedSandbox },
+  ) {
     this.activeMode = "build";
   }
 
