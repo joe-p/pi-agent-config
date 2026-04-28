@@ -69,7 +69,8 @@ export class ScopedSandbox {
     }
 
     matches.sort((a, b) => b.split(" ").length - a.split(" ").length);
-    return { config: this.scopedCommands[matches[0]], matchedKey: matches[0] };
+    const matchedKey = matches[0]!;
+    return { config: this.scopedCommands[matchedKey]!, matchedKey };
   }
 
   // TODO: put this behind mutex

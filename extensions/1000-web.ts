@@ -15,6 +15,8 @@ import {
 import { Readability } from "@mozilla/readability";
 import { JSDOM } from "jsdom";
 import TurndownService from "turndown";
+
+// @ts-expect-error no types for this package
 import { gfm } from "turndown-plugin-gfm";
 
 const SERVICE = "pi-coding-agent";

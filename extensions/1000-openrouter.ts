@@ -123,7 +123,7 @@ export default function (pi: ExtensionAPI) {
       const subcommand = args.trim().toLowerCase();
 
       if (subcommand === "reload" || subcommand === "r") {
-        const newConfig = loadConfig(ctx, configPath);
+        const newConfig = loadConfig(configPath);
         if (newConfig) {
           config = newConfig;
           const modelCount = Object.keys(config).length;

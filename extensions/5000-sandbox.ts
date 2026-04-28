@@ -325,7 +325,7 @@ export function extractDomainsFromCommand(command: string): string[] {
   const domains = new Set<string>();
   let match;
   while ((match = urlRegex.exec(command)) !== null) {
-    domains.add(match[1]);
+    domains.add(match[1]!);
   }
   return [...domains];
 }
@@ -352,7 +352,7 @@ function extractBlockedWritePath(output: string): string | null {
   const match = output.match(
     /(?:\/bin\/bash|bash|sh): (\/[^\s:]+): Operation not permitted/,
   );
-  return match ? match[1] : null;
+  return match ? match[1]! : null;
 }
 
 // ── Path pattern matching ─────────────────────────────────────────────────────
@@ -913,7 +913,7 @@ export default function (pi: ExtensionAPI) {
       // --use-env-proxy (Node 22+) opts it in. We set this here so that node
       // subprocesses spawned directly from bash (e.g. `node script.ts`) also
       // pick it up without needing to go through wrapWithSandbox.
-      const nodeMajor = parseInt(process.versions.node.split(".")[0], 10);
+      const nodeMajor = parseInt(process.versions.node.split(".")[0]!, 10);
       if (nodeMajor >= 22) {
         const existing = process.env.NODE_OPTIONS ?? "";
         process.env.NODE_OPTIONS = existing
