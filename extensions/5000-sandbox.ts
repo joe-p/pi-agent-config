@@ -86,6 +86,7 @@ import {
   isToolCallEventType,
 } from "@mariozechner/pi-coding-agent";
 import {
+  CommandConfig,
   emptyRuntimeConfig,
   ParentCommand,
   ScopedSandbox,
@@ -115,6 +116,14 @@ class SandboxWithContext {
   public lastParentApproved?: string;
   public activeMode: Mode;
   public sandboxes: { plan: ScopedSandbox; build: ScopedSandbox };
+
+  addConfig(mode: Mode | "both", command: string, config: CommandConfig) {
+    const modes: Mode[] = mode === "both" ? ["plan", "build"] : [mode];
+
+    modes.forEach((m) => {
+      this.sandboxes[m].scopedCommands[command] = config;
+    });
+  }
 
   async assertApproval(parentCommand: ParentCommand): Promise<void> {
     const { command, id } = parentCommand;
@@ -167,6 +176,25 @@ class SandboxWithContext {
     const jsInstallSubCommands = ["i", "add", "install"];
 
     jsPackageManagers.forEach((pm) => {
+      this.addConfig("both", pm, {
+        alwayDenyWithMessage: false,
+        approvalAssertion: async (_, parentCommand) => {
+          await this.assertApproval(parentCommand);
+        },
+        runtimeConfig: {
+          filesystem: {
+            allowRead: ["."],
+            allowWrite: [],
+            denyRead: GLOBAL_CONFIG.filesystem.denyRead,
+            denyWrite: [],
+          },
+          network: {
+            allowedDomains: ["npmjs.org", "registry.npmjs.org", "npm.jsr.io"],
+            deniedDomains: [],
+          },
+        },
+      });
+
       jsInstallSubCommands.forEach((c) => {
         this.sandboxes["build"].scopedCommands[`${pm} ${c}`] = {
           alwayDenyWithMessage: false,
