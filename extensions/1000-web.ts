@@ -218,9 +218,6 @@ export default function (pi: ExtensionAPI) {
 
     const config = loadConfig(ctx.cwd);
 
-    // Skip check if sandbox is disabled in config
-    if (config.enabled === false) return;
-
     const urlString = (event.input as { url: string }).url;
     let domain: string;
 
