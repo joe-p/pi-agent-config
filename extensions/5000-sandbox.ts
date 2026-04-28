@@ -86,15 +86,14 @@ import {
   isToolCallEventType,
 } from "@mariozechner/pi-coding-agent";
 import {
-  CommandConfig,
   emptyRuntimeConfig,
   MandatoryConfig,
-  ParentCommand,
   ScopedSandbox,
 } from "./lib/scoped-sandbox";
 import { AgentMessage } from "@mariozechner/pi-agent-core";
 import { Key } from "@mariozechner/pi-tui";
 import { TextContent } from "@mariozechner/pi-ai";
+import { PiSandbox, SandboxMode } from "./lib/pi-sandbox";
 
 /** Rules that are ALWAYS enforced */
 const MANDATORY_CONFIG: MandatoryConfig = {
@@ -109,51 +108,6 @@ const MANDATORY_CONFIG: MandatoryConfig = {
     denyWrite: [".git"],
   },
 };
-
-type Mode = "plan" | "build";
-
-class PiSandbox {
-  public ctx?: ExtensionContext;
-  public lastParentApproved?: string;
-  public activeMode: Mode;
-
-  addConfig(mode: Mode | "both", command: string, config: CommandConfig) {
-    const modes: Mode[] = mode === "both" ? ["plan", "build"] : [mode];
-
-    modes.forEach((m) => {
-      this.sandboxes[m].scopedCommands[command] = config;
-    });
-  }
-
-  async assertApproval(parentCommand: ParentCommand): Promise<void> {
-    const { command, id } = parentCommand;
-    if (this.lastParentApproved === id) return;
-    if (!this.ctx) {
-      throw Error("Failed to get ctx!");
-    }
-
-    const choice = await this.ctx.ui.select(
-      `[sandbox] run command?: ${command}`,
-      ["No, do not run this command", "Yes, run this command"],
-    );
-
-    if (!choice?.startsWith("Yes")) {
-      throw Error(
-        `Bash command rejected by user: ${command}. Ask them how they want to proceed.`,
-      );
-    }
-
-    this.lastParentApproved = id;
-  }
-
-  get sandbox(): ScopedSandbox {
-    return this.sandboxes[this.activeMode];
-  }
-
-  constructor(public sandboxes: { plan: ScopedSandbox; build: ScopedSandbox }) {
-    this.activeMode = "build";
-  }
-}
 
 const sandboxes = {
   build: new ScopedSandbox(
@@ -239,13 +193,13 @@ jsPackageManagers.forEach((pm) => {
 const allowedGitCmds = ["diff", "grep", "log", "show", "status"];
 
 ["build", "plan"].forEach((mode) => {
-  sandbox.sandboxes[mode as Mode].scopedCommands["git"] = {
+  sandbox.sandboxes[mode as SandboxMode].scopedCommands["git"] = {
     runtimeConfig: emptyRuntimeConfig(),
     alwayDenyWithMessage: `This git command is not allowed. The allowed commands are ${allowedGitCmds}. As an agent, you should only use read-only git commands. If you think this is a mistake, inform the user and ask them to allow the sub-command you are trying to use`,
   };
 
   allowedGitCmds.forEach((c) => {
-    sandbox.sandboxes[mode as Mode].scopedCommands[`git ${c}`] = {
+    sandbox.sandboxes[mode as SandboxMode].scopedCommands[`git ${c}`] = {
       alwayDenyWithMessage: false,
       runtimeConfig: {
         ...emptyRuntimeConfig(),
