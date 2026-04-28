@@ -1,7 +1,7 @@
 import {
   SandboxManager,
   type SandboxRuntimeConfig,
-} from "@anthropic-ai/sandbox-runtime";
+} from "@joe-p/sandbox-runtime";
 import { parse } from "shell-quote";
 import crypto from "crypto";
 

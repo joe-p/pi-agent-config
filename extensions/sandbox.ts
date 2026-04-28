@@ -75,7 +75,7 @@ import {
 } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { type SandboxRuntimeConfig } from "@anthropic-ai/sandbox-runtime";
+import { type SandboxRuntimeConfig } from "@joe-p/sandbox-runtime";
 import type {
   ExtensionAPI,
   ExtensionContext,
@@ -160,25 +160,39 @@ class SandboxWithContext {
       }),
     };
 
-    ["npm install", "pnpm install", "pnpm add"].forEach((c) => {
-      this.sandboxes["build"].scopedCommands[c] = {
-        alwayDenyWithMessage: false,
-        approvalAssertion: async (_, parentCommand) => {
-          await this.assertApproval(parentCommand);
-        },
-        runtimeConfig: {
-          filesystem: {
-            allowRead: ["."],
-            denyRead: [],
-            allowWrite: ["."],
-            denyWrite: [".git"],
+    const jsPackageManagers = ["npm", "deno", "bun"];
+    const jsInstallSubCommands = ["i", "add", "install"];
+
+    jsPackageManagers.forEach((pm) => {
+      jsInstallSubCommands.forEach((c) => {
+        this.sandboxes["build"].scopedCommands[`${pm} ${c}`] = {
+          alwayDenyWithMessage: false,
+          approvalAssertion: async (_, parentCommand) => {
+            await this.assertApproval(parentCommand);
           },
-          network: {
-            allowedDomains: ["npmjs.org", "registry.npmjs.org", "npm.jsr.io"],
-            deniedDomains: [],
+          runtimeConfig: {
+            filesystem: {
+              // SRT has protections against specific directories/files such as .vscode, .gitmodules
+              // This is problematic for npm (and likely other package managers) because some packages
+              // include these directories in their bundle. We are still explicitly blocking writes to
+              // .git so we should be safe.
+              skipMandatoryDenyPatterns: true,
+
+              // TODO: further restrict to only allow read/writes on package.json, node_modules, and lock file.
+              // This will require logic to find the package.json and/or node_modules
+              allowRead: ["."],
+              allowWrite: ["."],
+
+              denyRead: [],
+              denyWrite: [".git"],
+            },
+            network: {
+              allowedDomains: ["npmjs.org", "registry.npmjs.org", "npm.jsr.io"],
+              deniedDomains: [],
+            },
           },
-        },
-      };
+        };
+      });
     });
 
     const allowedGitCmds = ["diff", "grep", "log", "show", "status"];
