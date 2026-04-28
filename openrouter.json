@@ -1,12 +1,12 @@
 {
   "moonshotai/kimi-k2.5": {
-    "order": ["deepinfra", "together", "parasail/int4"],
+    "order": ["modelrun/fp4", "fireworks"],
     "allow_fallbacks": false,
     "zdr": true,
     "data_collection": "deny"
   },
   "moonshotai/kimi-k2.6": {
-    "order": ["deepinfra/fp4", "atlas-cloud/int4", "parasail/int4"],
+    "order": ["baseten/fp4", "atlas-cloud/int4"],
     "allow_fallbacks": false,
     "zdr": true,
     "data_collection": "deny"
