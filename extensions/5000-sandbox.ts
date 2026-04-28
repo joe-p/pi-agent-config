@@ -112,11 +112,10 @@ const MANDATORY_CONFIG: MandatoryConfig = {
 
 type Mode = "plan" | "build";
 
-class SandboxWithContext {
+class PiSandbox {
   public ctx?: ExtensionContext;
   public lastParentApproved?: string;
   public activeMode: Mode;
-  public sandboxes: { plan: ScopedSandbox; build: ScopedSandbox };
 
   addConfig(mode: Mode | "both", command: string, config: CommandConfig) {
     const modes: Mode[] = mode === "both" ? ["plan", "build"] : [mode];
@@ -151,115 +150,115 @@ class SandboxWithContext {
     return this.sandboxes[this.activeMode];
   }
 
-  constructor() {
+  constructor(public sandboxes: { plan: ScopedSandbox; build: ScopedSandbox }) {
     this.activeMode = "build";
-
-    this.sandboxes = {
-      build: new ScopedSandbox(
-        {
-          alwayDenyWithMessage: false,
-          runtimeConfig: {
-            ...emptyRuntimeConfig(),
-            filesystem: {
-              allowRead: [],
-              denyRead: [],
-              allowWrite: [".", "/tmp"],
-              denyWrite: [".git"],
-            },
-          },
-        },
-        MANDATORY_CONFIG,
-      ),
-      plan: new ScopedSandbox(
-        {
-          alwayDenyWithMessage: false,
-          runtimeConfig: emptyRuntimeConfig(),
-        },
-        MANDATORY_CONFIG,
-      ),
-    };
-
-    const jsPackageManagers = ["npm", "deno", "bun"];
-    const jsInstallSubCommands = ["i", "add", "install"];
-
-    jsPackageManagers.forEach((pm) => {
-      this.addConfig("both", pm, {
-        alwayDenyWithMessage: false,
-        approvalAssertion: async (_, parentCommand) => {
-          await this.assertApproval(parentCommand);
-        },
-        runtimeConfig: {
-          filesystem: {
-            allowRead: ["."],
-            allowWrite: [],
-            denyRead: MANDATORY_CONFIG.filesystem.denyRead,
-            denyWrite: [],
-          },
-          network: {
-            allowedDomains: ["npmjs.org", "registry.npmjs.org", "npm.jsr.io"],
-            deniedDomains: [],
-          },
-        },
-      });
-
-      jsInstallSubCommands.forEach((c) => {
-        this.sandboxes["build"].scopedCommands[`${pm} ${c}`] = {
-          alwayDenyWithMessage: false,
-          approvalAssertion: async (_, parentCommand) => {
-            await this.assertApproval(parentCommand);
-          },
-          runtimeConfig: {
-            filesystem: {
-              // SRT has protections against specific directories/files such as .vscode, .gitmodules
-              // This is problematic for npm (and likely other package managers) because some packages
-              // include these directories in their bundle. We are still explicitly blocking writes to
-              // .git so we should be safe.
-              skipMandatoryDenyPatterns: true,
-
-              // TODO: further restrict to only allow read/writes on package.json, node_modules, and lock file.
-              // This will require logic to find the package.json and/or node_modules
-              allowRead: ["."],
-              allowWrite: ["."],
-
-              denyRead: [],
-              denyWrite: [".git"],
-            },
-            network: {
-              allowedDomains: ["npmjs.org", "registry.npmjs.org", "npm.jsr.io"],
-              deniedDomains: [],
-            },
-          },
-        };
-      });
-    });
-
-    const allowedGitCmds = ["diff", "grep", "log", "show", "status"];
-
-    ["build", "plan"].forEach((mode) => {
-      this.sandboxes[mode as Mode].scopedCommands["git"] = {
-        runtimeConfig: emptyRuntimeConfig(),
-        alwayDenyWithMessage: `This git command is not allowed. The allowed commands are ${allowedGitCmds}. As an agent, you should only use read-only git commands. If you think this is a mistake, inform the user and ask them to allow the sub-command you are trying to use`,
-      };
-
-      allowedGitCmds.forEach((c) => {
-        this.sandboxes[mode as Mode].scopedCommands[`git ${c}`] = {
-          alwayDenyWithMessage: false,
-          runtimeConfig: {
-            ...emptyRuntimeConfig(),
-            filesystem: {
-              allowRead: ["~/.gitconfig"],
-              allowWrite: [],
-              denyRead: [],
-              denyWrite: [],
-            },
-          },
-        };
-      });
-    });
   }
 }
 
-const sandbox = new SandboxWithContext();
+const sandboxes = {
+  build: new ScopedSandbox(
+    {
+      alwayDenyWithMessage: false,
+      runtimeConfig: {
+        ...emptyRuntimeConfig(),
+        filesystem: {
+          allowRead: [],
+          denyRead: [],
+          allowWrite: [".", "/tmp"],
+          denyWrite: [],
+        },
+      },
+    },
+    MANDATORY_CONFIG,
+  ),
+  plan: new ScopedSandbox(
+    {
+      alwayDenyWithMessage: false,
+      runtimeConfig: emptyRuntimeConfig(),
+    },
+    MANDATORY_CONFIG,
+  ),
+};
+
+const sandbox = new PiSandbox(sandboxes);
+
+const jsPackageManagers = ["npm", "deno", "bun"];
+const jsInstallSubCommands = ["i", "add", "install"];
+
+jsPackageManagers.forEach((pm) => {
+  sandbox.addConfig("both", pm, {
+    alwayDenyWithMessage: false,
+    approvalAssertion: async (_, parentCommand) => {
+      await sandbox.assertApproval(parentCommand);
+    },
+    runtimeConfig: {
+      filesystem: {
+        allowRead: ["."],
+        allowWrite: [],
+        denyRead: MANDATORY_CONFIG.filesystem.denyRead,
+        denyWrite: [],
+      },
+      network: {
+        allowedDomains: ["npmjs.org", "registry.npmjs.org", "npm.jsr.io"],
+        deniedDomains: [],
+      },
+    },
+  });
+
+  jsInstallSubCommands.forEach((c) => {
+    sandbox.sandboxes["build"].scopedCommands[`${pm} ${c}`] = {
+      alwayDenyWithMessage: false,
+      approvalAssertion: async (_, parentCommand) => {
+        await sandbox.assertApproval(parentCommand);
+      },
+      runtimeConfig: {
+        filesystem: {
+          // SRT has protections against specific directories/files such as .vscode, .gitmodules
+          // This is problematic for npm (and likely other package managers) because some packages
+          // include these directories in their bundle. We are still explicitly blocking writes to
+          // .git so we should be safe.
+          skipMandatoryDenyPatterns: true,
+
+          // TODO: further restrict to only allow read/writes on package.json, node_modules, and lock file.
+          // This will require logic to find the package.json and/or node_modules
+          allowRead: ["."],
+          allowWrite: ["."],
+
+          denyRead: [],
+          denyWrite: [".git"],
+        },
+        network: {
+          allowedDomains: ["npmjs.org", "registry.npmjs.org", "npm.jsr.io"],
+          deniedDomains: [],
+        },
+      },
+    };
+  });
+});
+
+const allowedGitCmds = ["diff", "grep", "log", "show", "status"];
+
+["build", "plan"].forEach((mode) => {
+  sandbox.sandboxes[mode as Mode].scopedCommands["git"] = {
+    runtimeConfig: emptyRuntimeConfig(),
+    alwayDenyWithMessage: `This git command is not allowed. The allowed commands are ${allowedGitCmds}. As an agent, you should only use read-only git commands. If you think this is a mistake, inform the user and ask them to allow the sub-command you are trying to use`,
+  };
+
+  allowedGitCmds.forEach((c) => {
+    sandbox.sandboxes[mode as Mode].scopedCommands[`git ${c}`] = {
+      alwayDenyWithMessage: false,
+      runtimeConfig: {
+        ...emptyRuntimeConfig(),
+        filesystem: {
+          allowRead: ["~/.gitconfig"],
+          allowWrite: [],
+          denyRead: [],
+          denyWrite: [],
+        },
+      },
+    };
+  });
+});
 
 export function loadConfig(cwd: string): SandboxRuntimeConfig {
   const projectConfigPath = join(cwd, ".pi", "sandbox.json");
