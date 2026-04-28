@@ -11,7 +11,7 @@ import {
   loadConfig,
   promptDomainBlock,
   applyDomainChoice,
-} from "./sandbox";
+} from "./5000-sandbox";
 import { Readability } from "@mozilla/readability";
 import { JSDOM } from "jsdom";
 import TurndownService from "turndown";
