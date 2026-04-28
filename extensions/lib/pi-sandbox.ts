@@ -5,8 +5,20 @@ export type SandboxMode = "plan" | "build";
 
 export class PiSandbox {
   public ctx?: ExtensionContext;
-  public lastParentApproved?: string;
-  public activeMode: SandboxMode;
+  private lastParentApproved?: string;
+  private activeMode: SandboxMode;
+
+  constructor(public sandboxes: { plan: ScopedSandbox; build: ScopedSandbox }) {
+    this.activeMode = "build";
+  }
+
+  getMode(): SandboxMode {
+    return this.activeMode;
+  }
+
+  setMode(mode: SandboxMode) {
+    this.activeMode = mode;
+  }
 
   addConfig(
     mode: SandboxMode | "both",
@@ -43,9 +55,5 @@ export class PiSandbox {
 
   get sandbox(): ScopedSandbox {
     return this.sandboxes[this.activeMode];
-  }
-
-  constructor(public sandboxes: { plan: ScopedSandbox; build: ScopedSandbox }) {
-    this.activeMode = "build";
   }
 }

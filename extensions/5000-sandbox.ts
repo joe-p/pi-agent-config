@@ -964,11 +964,11 @@ function setupPlanMode(pi: ExtensionAPI) {
     planModeEnabled = !planModeEnabled;
 
     if (planModeEnabled) {
-      sandbox.activeMode = "plan";
+      sandbox.setMode("plan");
       pi.setActiveTools(PLAN_MODE_TOOLS);
       ctx.ui.notify(`Plan mode enabled. Tools: ${PLAN_MODE_TOOLS.join(", ")}`);
     } else {
-      sandbox.activeMode = "build";
+      sandbox.setMode("build");
       pi.setActiveTools(initialTools);
       ctx.ui.notify("Plan mode disabled. Full access restored.");
     }
