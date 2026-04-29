@@ -66,7 +66,7 @@ jsPackageManagers.forEach((pm) => {
     },
     runtimeConfig: {
       filesystem: {
-        allowRead: [],
+        allowRead: ["."],
         allowWrite: [],
         denyRead: [],
         denyWrite: [],
@@ -98,7 +98,7 @@ jsPackageManagers.forEach((pm) => {
           allowWrite: ["."],
 
           denyRead: [],
-          denyWrite: [".git"],
+          denyWrite: [],
         },
         network: {
           allowedDomains: ["npmjs.org", "registry.npmjs.org", "npm.jsr.io"],
