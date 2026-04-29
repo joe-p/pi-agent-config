@@ -58,7 +58,7 @@ export class ScopedSandbox {
 
   constructor(
     public defaultConfig: CommandConfig,
-    private mandatoryConfig: MandatoryConfig,
+    public mandatoryConfig: MandatoryConfig,
   ) {}
 
   /**

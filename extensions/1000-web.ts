@@ -4,14 +4,12 @@
 import { Entry } from "@napi-rs/keyring";
 import Type from "typebox";
 import { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
+import { sandbox } from "./5000-sandbox";
 import {
   domainIsAllowed,
   domainMatchesPattern,
-  getEffectiveAllowedDomains,
-  loadConfig,
   promptDomainBlock,
-  applyDomainChoice,
-} from "./5000-sandbox";
+} from "./lib/pi-sandbox";
 import { Readability } from "@mozilla/readability";
 import { JSDOM } from "jsdom";
 import TurndownService from "turndown";
@@ -218,7 +216,7 @@ export default function (pi: ExtensionAPI) {
     // Only intercept web_fetch tool calls
     if (event.toolName !== "web_fetch") return;
 
-    const config = loadConfig(ctx.cwd);
+    const config = sandbox.loadConfig(ctx.cwd);
 
     const urlString = (event.input as { url: string }).url;
     let domain: string;
@@ -244,7 +242,8 @@ export default function (pi: ExtensionAPI) {
     }
 
     // Check if domain is allowed (includes session-allowed domains)
-    const effectiveDomains = getEffectiveAllowedDomains(ctx.cwd);
+    const effectiveDomains = sandbox.getEffectiveAllowedDomains(ctx.cwd);
+
     if (!domainIsAllowed(domain, effectiveDomains)) {
       // Prompt user for action (share session state with sandbox extension)
       const choice = await promptDomainBlock(ctx, domain);
@@ -255,7 +254,7 @@ export default function (pi: ExtensionAPI) {
         };
       }
       // Apply the choice - this adds to sessionAllowedDomains and config if needed
-      await applyDomainChoice(choice, domain, ctx.cwd);
+      await sandbox.applyDomainChoice(choice, domain, ctx.cwd);
       // Domain is now allowed for this call - fall through to allow execution
     }
   });
