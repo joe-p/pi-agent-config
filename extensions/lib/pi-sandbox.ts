@@ -1,5 +1,10 @@
 import { ExtensionContext } from "@mariozechner/pi-coding-agent";
-import { CommandConfig, ParentCommand, ScopedSandbox } from "./scoped-sandbox";
+import {
+  CommandConfig,
+  NetworkAndFsConfig,
+  ParentCommand,
+  ScopedSandbox,
+} from "./scoped-sandbox";
 import { TextContent } from "@mariozechner/pi-ai";
 import { AgentMessage } from "@mariozechner/pi-agent-core";
 import { SandboxRuntimeConfig } from "@joe-p/sandbox-runtime";
@@ -105,8 +110,8 @@ export class PiSandbox {
     const projectConfigPath = join(cwd, ".pi", "sandbox.json");
     const globalConfigPath = join(homedir(), ".pi", "agent", "sandbox.json");
 
-    let globalConfig: Partial<SandboxRuntimeConfig> = {};
-    let projectConfig: Partial<SandboxRuntimeConfig> = {};
+    let globalConfig: Partial<NetworkAndFsConfig> = {};
+    let projectConfig: Partial<NetworkAndFsConfig> = {};
 
     if (existsSync(globalConfigPath)) {
       try {
@@ -124,10 +129,18 @@ export class PiSandbox {
       }
     }
 
-    return deepMerge(
-      deepMerge(this.sandboxes[this.activeMode].mandatoryConfig, globalConfig),
-      projectConfig,
+    const sandbox = this.sandboxes[this.activeMode];
+
+    const defaults = mergeWithConcatenation(
+      sandbox.mandatoryConfig,
+      sandbox.defaultConfig.runtimeConfig,
     );
+    const globalWithDefaults = mergeWithConcatenation(defaults, globalConfig);
+    const projectWithDefaults = mergeWithConcatenation(defaults, projectConfig);
+
+    const final = mergeWithOverwrites(globalWithDefaults, projectWithDefaults);
+
+    return final;
   }
 
   createSandboxedBashOps(ctx: ExtensionContext): BashOperations {
@@ -657,9 +670,9 @@ Do NOT attempt to make changes - just describe what you would do.`,
   }
 }
 
-function deepMerge(
+function mergeWithOverwrites(
   base: SandboxRuntimeConfig,
-  overrides: Partial<SandboxRuntimeConfig>,
+  overrides: Partial<NetworkAndFsConfig>,
 ): SandboxRuntimeConfig {
   const result: SandboxRuntimeConfig = { ...base };
 
@@ -670,26 +683,30 @@ function deepMerge(
     result.filesystem = { ...base.filesystem, ...overrides.filesystem };
   }
 
-  const extOverrides = overrides as {
-    ignoreViolations?: Record<string, string[]>;
-    enableWeakerNestedSandbox?: boolean;
-    allowBrowserProcess?: boolean;
-  };
-  const extResult = result as {
-    ignoreViolations?: Record<string, string[]>;
-    enableWeakerNestedSandbox?: boolean;
-    allowBrowserProcess?: boolean;
-  };
+  return result;
+}
 
-  if (extOverrides.ignoreViolations) {
-    extResult.ignoreViolations = extOverrides.ignoreViolations;
-  }
-  if (extOverrides.enableWeakerNestedSandbox !== undefined) {
-    extResult.enableWeakerNestedSandbox =
-      extOverrides.enableWeakerNestedSandbox;
-  }
-  if (extOverrides.allowBrowserProcess !== undefined) {
-    extResult.allowBrowserProcess = extOverrides.allowBrowserProcess;
+function mergeWithConcatenation(
+  base: SandboxRuntimeConfig,
+  overrides: Partial<NetworkAndFsConfig>,
+): SandboxRuntimeConfig {
+  const result: SandboxRuntimeConfig = { ...base };
+
+  base.network.allowedDomains.push(
+    ...(overrides.network?.allowedDomains || []),
+  );
+  base.network.deniedDomains.push(...(overrides.network?.deniedDomains || []));
+
+  base.filesystem.denyRead.push(...(overrides.filesystem?.denyRead || []));
+  base.filesystem.denyWrite.push(...(overrides.filesystem?.denyWrite || []));
+  base.filesystem.allowWrite.push(...(overrides.filesystem?.allowWrite || []));
+  base.filesystem.allowRead = [
+    ...(base.filesystem.allowRead || []),
+    ...(overrides.filesystem?.allowRead || []),
+  ];
+
+  if (overrides.filesystem) {
+    result.filesystem = { ...base.filesystem, ...overrides.filesystem };
   }
 
   return result;

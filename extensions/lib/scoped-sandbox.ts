@@ -43,7 +43,7 @@ async function initialize(config: SandboxRuntimeConfig) {
   await SandboxManager.waitForNetworkInitialization();
 }
 
-export type MandatoryConfig = {
+export type NetworkAndFsConfig = {
   filesystem: {
     denyRead: string[];
     allowWrite: string[];
@@ -58,7 +58,7 @@ export class ScopedSandbox {
 
   constructor(
     public defaultConfig: CommandConfig,
-    public mandatoryConfig: MandatoryConfig,
+    public mandatoryConfig: NetworkAndFsConfig,
   ) {}
 
   /**
