@@ -790,13 +790,6 @@ function matchesPattern(filePath: string, patterns: string[]): boolean {
   return false;
 }
 
-// ── Sandboxed bash ops ────────────────────────────────────────────────────────
-
-// ── Module-level sandbox state ───────────────────────────────────────────────
-
-// Session-temporary allowances — held in JS memory, not accessible by the agent.
-// These are shared across extensions that import from this module.
-
 // ── Config helpers ───────────────────────────────────────────────────────────
 
 function getConfigPaths(cwd: string): {
@@ -955,7 +948,3 @@ export async function promptWriteBlock(
   if (choice.startsWith("Allow for this project")) return "project";
   return "global";
 }
-
-// ── Apply allowance choices ─────────────────────────────────────────────────
-
-// ── Extension ─────────────────────────────────────────────────────────────────
