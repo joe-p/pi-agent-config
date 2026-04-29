@@ -1,13 +1,13 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import {
   emptyRuntimeConfig,
-  MandatoryConfig,
+  NetworkAndFsConfig,
   ScopedSandbox,
 } from "./lib/scoped-sandbox";
 import { PiSandbox } from "./lib/pi-sandbox";
 
 /** Rules that are ALWAYS enforced */
-const MANDATORY_CONFIG: MandatoryConfig = {
+const MANDATORY_CONFIG: NetworkAndFsConfig = {
   network: {
     allowedDomains: [],
     deniedDomains: [],
