@@ -449,8 +449,6 @@ export class PiSandbox {
             ? `${existing} --use-env-proxy`
             : "--use-env-proxy";
         }
-
-        ctx.ui.setStatus("sandbox", ctx.ui.theme.fg("accent", `🔒`));
       } catch (err) {
         ctx.ui.notify(
           `Sandbox initialization failed: ${err instanceof Error ? err.message : err}`,

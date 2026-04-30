@@ -3,8 +3,15 @@
  */
 import { Entry } from "@napi-rs/keyring";
 import Type from "typebox";
-import { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
+import {
+  ExtensionAPI,
+  ExtensionContext,
+  getMarkdownTheme,
+  type Theme,
+  AgentToolResult,
+} from "@mariozechner/pi-coding-agent";
 import { sandbox } from "./5000-sandbox";
+import { Markdown, Text } from "@mariozechner/pi-tui";
 import {
   domainIsAllowed,
   domainMatchesPattern,
@@ -82,9 +89,24 @@ async function fetchBraveResults(
     }
   }
 
-  return results;
+  return searchResultsToMarkdown(results);
 }
 
+function searchResultsToMarkdown(
+  results: {
+    title: string;
+    link: string;
+    snippet: string;
+    age: string;
+  }[],
+) {
+  return results
+    .map((r, i) => {
+      return `# Result ${i} ${r.age ? `(age: ${r.age})` : ""}: ${r.title}
+${r.link}\n\n${r.snippet}`;
+    })
+    .join("\n");
+}
 function htmlToMarkdown(html: string) {
   const turndown = new TurndownService({
     headingStyle: "atx",
@@ -185,9 +207,51 @@ export default function (pi: ExtensionAPI) {
     async execute(_toolCallId, params, _signal, _onUpdate, _ctx) {
       const results = await fetchBraveResults(params.query, params.numResults);
       return {
-        content: [{ type: "text", text: JSON.stringify(results) }],
-        details: results,
+        content: [{ type: "text", text: results }],
+        details: { query: params.query, results },
       };
+    },
+
+    renderCall(args, theme: Theme) {
+      const query = args.query || "";
+      const display = query.length > 50 ? query.slice(0, 47) + "..." : query;
+      let text = theme.fg("toolTitle", theme.bold("web_search "));
+      text += theme.fg("accent", `"${display}"`);
+      if (args.numResults) {
+        text += theme.fg("dim", ` (${args.numResults} results)`);
+      }
+      return new Text(text, 0, 0);
+    },
+
+    renderResult(
+      result: AgentToolResult<unknown>,
+      { isPartial },
+      theme: Theme,
+    ) {
+      if (isPartial) {
+        return new Text(theme.fg("warning", "Searching..."), 0, 0);
+      }
+
+      const mdTheme = getMarkdownTheme();
+      const details = result.details as
+        | { query: string; results: string }
+        | undefined;
+      let markdown = "";
+
+      if (details?.query) {
+        markdown += `## 🔍 ${details.query}\n\n`;
+      }
+
+      if (details?.results) {
+        markdown += details.results;
+      } else {
+        const textContent = result.content
+          ?.map((c) => (c.type === "text" ? c.text : ""))
+          .join("\n");
+        markdown = textContent || "No results found";
+      }
+
+      return new Markdown(markdown, 0, 0, mdTheme);
     },
   });
 
@@ -206,8 +270,43 @@ export default function (pi: ExtensionAPI) {
       const results = await webFetch(params.url);
       return {
         content: [{ type: "text", text: results }],
-        details: results,
+        details: { url: params.url, content: results },
       };
+    },
+
+    renderCall(args, theme: Theme) {
+      const url = args.url || "";
+      const display = url.length > 60 ? url.slice(0, 57) + "..." : url;
+      let text = theme.fg("toolTitle", theme.bold("web_fetch "));
+      text += theme.fg("accent", display);
+      return new Text(text, 0, 0);
+    },
+
+    renderResult(
+      result: AgentToolResult<unknown>,
+      { isPartial },
+      theme: Theme,
+    ) {
+      if (isPartial) {
+        return new Text(theme.fg("warning", "Fetching..."), 0, 0);
+      }
+
+      const mdTheme = getMarkdownTheme();
+      const details = result.details as
+        | { url: string; content: string }
+        | undefined;
+      let markdown = "";
+
+      if (details?.content) {
+        markdown += details.content;
+      } else {
+        const textContent = result.content
+          ?.map((c) => (c.type === "text" ? c.text : ""))
+          .join("\n");
+        markdown = textContent || "No content fetched";
+      }
+
+      return new Markdown(markdown, 1, 1, mdTheme);
     },
   });
 
