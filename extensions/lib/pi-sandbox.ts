@@ -28,6 +28,7 @@ import {
   isToolCallEventType,
 } from "@mariozechner/pi-coding-agent";
 import { Key } from "@mariozechner/pi-tui";
+import { exec } from "node:child_process";
 
 const PLAN_MODE_TOOLS = [
   "read",
@@ -89,6 +90,11 @@ export class PiSandbox {
     if (!this.ctx) {
       throw Error("Failed to get ctx!");
     }
+
+    sendSystemNotification(
+      "Pi Sandbox",
+      `Bash Request: ${parentCommand.command}`,
+    );
 
     const choice = await this.ctx.ui.select(
       `[sandbox] run command?: ${command}`,
@@ -877,6 +883,22 @@ export function sanitizeForUI(input: string): string {
   return input.replace(/[\x00-\x1F\x7F-\x9F]|\x1B\[[0-9;]*[A-Za-z]/g, "");
 }
 
+// ── System notifications ─────────────────────────────────────────────────
+
+function sendSystemNotification(title: string, message: string): void {
+  if (process.platform !== "darwin") return;
+
+  const escapedTitle = title.replace(/"/g, '\\"');
+  const escapedMessage = message.replace(/"/g, '\\"');
+
+  exec(
+    `osascript -e 'display notification "${escapedMessage}" with title "${escapedTitle}"'`,
+    (err) => {
+      if (err) console.error("Failed to send notification:", err);
+    },
+  );
+}
+
 // ── UI prompts ──────────────────────────────────────────────────────────────
 
 export async function promptDomainBlock(
@@ -885,6 +907,7 @@ export async function promptDomainBlock(
 ): Promise<"abort" | "session" | "project" | "global"> {
   if (!ctx.hasUI) return "abort";
   const safeDomain = sanitizeForUI(domain);
+  sendSystemNotification("Pi Sandbox", `Network blocked: ${safeDomain}`);
   const choice = await ctx.ui.select(
     `🌐 Network blocked: "${safeDomain}" is not in allowedDomains`,
     [
@@ -906,6 +929,7 @@ export async function promptReadBlock(
 ): Promise<"abort" | "session" | "project" | "global"> {
   if (!ctx.hasUI) return "abort";
   const safePath = sanitizeForUI(filePath);
+  sendSystemNotification("Pi Sandbox", `Read blocked: ${basename(safePath)}`);
   const choice = await ctx.ui.select(
     `📖 Read blocked: "${safePath}" is not in allowRead`,
     [
@@ -927,6 +951,7 @@ export async function promptWriteBlock(
 ): Promise<"abort" | "session" | "project" | "global"> {
   if (!ctx.hasUI) return "abort";
   const safePath = sanitizeForUI(filePath);
+  sendSystemNotification("Pi Sandbox", `Write blocked: ${basename(safePath)}`);
   const choice = await ctx.ui.select(
     `📝 Write blocked: "${safePath}" is not in allowWrite`,
     [
