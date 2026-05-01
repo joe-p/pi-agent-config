@@ -10,7 +10,7 @@ import {
 import { TextContent } from "@mariozechner/pi-ai";
 import { AgentMessage } from "@mariozechner/pi-agent-core";
 import { SandboxRuntimeConfig } from "@joe-p/sandbox-runtime";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { homedir } from "node:os";
 import { existsSync } from "node:fs";
 import { spawn } from "node:child_process";
@@ -231,10 +231,16 @@ export class PiSandbox {
 
   getEffectiveAllowRead(cwd: string): string[] {
     const config = this.loadConfig(cwd);
-    return [
+    const denyReadAfterAllow = config.filesystem?.denyReadAfterAllow ?? [];
+    const allPaths = [
       ...(config.filesystem?.allowRead ?? []),
       ...this.sessionAllowedReadPaths,
     ];
+    return allPaths.filter((path) => {
+      return !denyReadAfterAllow.some((pattern) => {
+        return !matchesGlob(basename(path), pattern);
+      });
+    });
   }
 
   getEffectiveAllowWrite(cwd: string): string[] {
@@ -729,6 +735,18 @@ function resolveRealPath(filePath: string): string | null {
     // Path doesn't exist yet - return the normalized absolute path
     return abs;
   }
+}
+
+/**
+ * Match a string against a glob pattern where * matches any sequence of characters.
+ * Used for filename matching (e.g., "*.pem" matches ".pem").
+ */
+function matchesGlob(value: string, pattern: string): boolean {
+  const escaped = pattern
+    .replace(/[.+^${}()|[\]\\]/g, "\\$&")
+    .replace(/\*/g, ".*");
+  const regex = new RegExp(`^${escaped}$`);
+  return regex.test(value);
 }
 
 function matchesPattern(filePath: string, patterns: string[]): boolean {
