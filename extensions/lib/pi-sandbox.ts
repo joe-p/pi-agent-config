@@ -941,3 +941,31 @@ export async function promptWriteBlock(
   if (choice.startsWith("Allow for this project")) return "project";
   return "global";
 }
+
+export function walkBackUntilMatch(
+  cwd: string,
+  searchFor: string,
+): string | null {
+  let currentDir = resolve(cwd);
+  const homeDir = homedir();
+
+  while (true) {
+    const checkPath = join(currentDir, searchFor);
+    if (existsSync(checkPath)) {
+      return checkPath;
+    }
+
+    // Stop at home directory (don't go above ~/.)
+    if (currentDir === homeDir) {
+      return null;
+    }
+
+    const parentDir = dirname(currentDir);
+    // Also stop if we can't go up any further (reached root)
+    if (parentDir === currentDir) {
+      return null;
+    }
+
+    currentDir = parentDir;
+  }
+}

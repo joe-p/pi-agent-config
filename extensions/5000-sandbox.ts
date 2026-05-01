@@ -1,10 +1,11 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import {
+  CommandConfig,
   emptyRuntimeConfig,
   NetworkAndFsConfig,
   ScopedSandbox,
 } from "./lib/scoped-sandbox";
-import { PiSandbox } from "./lib/pi-sandbox";
+import { PiSandbox, walkBackUntilMatch } from "./lib/pi-sandbox";
 
 /** Rules that are ALWAYS enforced */
 const MANDATORY_CONFIG: NetworkAndFsConfig = {
@@ -118,18 +119,24 @@ sandbox.addConfig("both", "git", {
 });
 
 allowedGitCmds.forEach((c) => {
-  sandbox.addConfig("both", `git ${c}`, {
+  const config: CommandConfig = {
     alwayDenyWithMessage: false,
     runtimeConfig: {
       ...emptyRuntimeConfig(),
       filesystem: {
-        allowRead: ["~/.gitconfig"],
+        allowRead: [
+          ".",
+          walkBackUntilMatch(".", ".git")!,
+          walkBackUntilMatch(".", ".gitignore")!,
+        ],
         allowWrite: [],
         denyRead: [],
         denyWrite: [],
       },
     },
-  });
+  };
+
+  sandbox.addConfig("both", `git ${c}`, config);
 });
 
 export default function (pi: ExtensionAPI) {
