@@ -75,4 +75,4 @@ The [OpenRouter](./extensions/1000-openrouter.ts) extension adds OpenRouter-spec
 
 ### TPS: Tokens Per Second
 
-The [TPS](./extensions/tps-status.ts) is a very simple extension that reports the tokens per second for every LLM message
+The [TPS](./extensions/1000-tps.ts) is a very simple extension that reports the tokens per second for every LLM message
