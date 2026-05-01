@@ -119,13 +119,13 @@ sandbox.addConfig("both", "git", {
 });
 
 allowedGitCmds.forEach((c) => {
-  const config: CommandConfig = {
+  sandbox.addConfig("both", `git ${c}`, {
     alwayDenyWithMessage: false,
     runtimeConfig: {
       ...emptyRuntimeConfig(),
       filesystem: {
         allowRead: [
-          ".",
+          ".", // git needs access to cwd
           walkBackUntilMatch(".", ".git")!,
           walkBackUntilMatch(".", ".gitignore")!,
         ],
@@ -134,9 +134,7 @@ allowedGitCmds.forEach((c) => {
         denyWrite: [],
       },
     },
-  };
-
-  sandbox.addConfig("both", `git ${c}`, config);
+  });
 });
 
 export default function (pi: ExtensionAPI) {
