@@ -15,7 +15,7 @@ const MANDATORY_CONFIG: NetworkAndFsConfig = {
   },
   filesystem: {
     denyRead: ["~/"],
-    allowRead: ["~/.config", "~/.local", "~/.gitconfig"],
+    allowRead: ["~/.config", "~/.local", "~/.gitconfig", "~/.cache"],
     denyReadAfterAllow: [".env", ".env.*", "*.pem", "*.key", ".pi"],
     allowWrite: [],
     denyWrite: [".git"],
@@ -135,6 +135,23 @@ allowedGitCmds.forEach((c) => {
       },
     },
   });
+});
+
+sandbox.addConfig("both", "uv", {
+  alwayDenyWithMessage: false,
+  runtimeConfig: {
+    network: {
+      allowLocalBinding: true,
+      allowedDomains: [],
+      deniedDomains: [],
+    },
+    filesystem: {
+      allowRead: ["."],
+      allowWrite: ["~/.cache/uv"],
+      denyRead: [],
+      denyWrite: [],
+    },
+  },
 });
 
 export default function (pi: ExtensionAPI) {
