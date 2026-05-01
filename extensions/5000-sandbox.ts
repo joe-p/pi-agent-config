@@ -13,8 +13,9 @@ const MANDATORY_CONFIG: NetworkAndFsConfig = {
     deniedDomains: [],
   },
   filesystem: {
-    denyRead: ["~/", ".env", ".env.*", "*.pem", "*.key", ".pi"],
-    allowRead: ["~/.config", "~/.local"],
+    denyRead: ["~/"],
+    allowRead: ["~/.config", "~/.local", "~/.gitconfig"],
+    denyReadAfterAllow: [".env", ".env.*", "*.pem", "*.key", ".pi"],
     allowWrite: [],
     denyWrite: [".git"],
   },
@@ -59,15 +60,14 @@ const jsPackageManagers = ["npm", "deno", "bun"];
 const jsInstallSubCommands = ["i", "add", "install"];
 
 jsPackageManagers.forEach((pm) => {
+  // In both plan mode and build mode allow pnpm to read files and access the registry
+  // The network access is primarily useful for letting the agent run audit commands in plan mode
   sandbox.addConfig("both", pm, {
     alwayDenyWithMessage: false,
-    approvalAssertion: async (_, parentCommand) => {
-      await sandbox.assertApproval(parentCommand);
-    },
     runtimeConfig: {
       filesystem: {
         allowRead: ["."],
-        allowWrite: [],
+        allowWrite: ["node_modules/.vite-temp"],
         denyRead: [],
         denyWrite: [],
       },
@@ -78,6 +78,7 @@ jsPackageManagers.forEach((pm) => {
     },
   });
 
+  // In build mode, allow writing and network access to the registry
   jsInstallSubCommands.forEach((c) => {
     sandbox.addConfig("build", `${pm} ${c}`, {
       alwayDenyWithMessage: false,
@@ -109,7 +110,7 @@ jsPackageManagers.forEach((pm) => {
   });
 });
 
-const allowedGitCmds = ["diff", "grep", "log", "show", "status"];
+const allowedGitCmds = ["diff", "grep", "log", "show", "status", "rev-parse"];
 
 sandbox.addConfig("both", "git", {
   runtimeConfig: emptyRuntimeConfig(),

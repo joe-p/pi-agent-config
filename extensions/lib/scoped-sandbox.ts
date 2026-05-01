@@ -44,13 +44,8 @@ async function initialize(config: SandboxRuntimeConfig) {
 }
 
 export type NetworkAndFsConfig = {
-  filesystem: {
-    denyRead: string[];
-    allowWrite: string[];
-    denyWrite: string[];
-    allowRead?: string[] | undefined;
-  };
-  network: { allowedDomains: string[]; deniedDomains: string[] };
+  filesystem: SandboxRuntimeConfig["filesystem"];
+  network: SandboxRuntimeConfig["network"];
 };
 
 export class ScopedSandbox {
@@ -85,18 +80,7 @@ export class ScopedSandbox {
     const matchedKey = matches[0]!;
 
     const config = this.scopedCommands[matchedKey]!;
-    const rtConfig = config.runtimeConfig;
-    const mConfig = this.mandatoryConfig;
-
-    rtConfig.network.allowedDomains.push(...mConfig.network.allowedDomains);
-    rtConfig.network.deniedDomains.push(...mConfig.network.deniedDomains);
-    rtConfig.filesystem.denyRead.push(...mConfig.filesystem.denyRead);
-    rtConfig.filesystem.denyWrite.push(...mConfig.filesystem.denyWrite);
-    rtConfig.filesystem.allowWrite.push(...mConfig.filesystem.allowWrite);
-    rtConfig.filesystem.allowRead = rtConfig.filesystem.allowRead ?? [];
-    rtConfig.filesystem.allowRead.push(...(mConfig.filesystem.allowRead || []));
-
-    return { config: this.scopedCommands[matchedKey]!, matchedKey };
+    return { config, matchedKey };
   }
 
   // TODO: put this behind mutex
@@ -107,9 +91,11 @@ export class ScopedSandbox {
     const parentCommand: ParentCommand = { command, id: crypto.randomUUID() };
 
     // TODO: merge runtime configs
-    const runtimeConfig =
+    const runtimeConfig = mergeWithConcatenation(
       this.getCommandConfig(command)?.config.runtimeConfig ??
-      this.defaultConfig.runtimeConfig;
+        this.defaultConfig.runtimeConfig,
+      this.mandatoryConfig,
+    );
 
     const initPromise = initialize(runtimeConfig);
     // After initialization, update config with the runtime config
@@ -144,4 +130,69 @@ export class ScopedSandbox {
     await initPromise;
     await cb(wrappedCmd);
   }
+}
+
+export function mergeWithOverwrites(
+  base: SandboxRuntimeConfig,
+  overrides: Partial<NetworkAndFsConfig>,
+): SandboxRuntimeConfig {
+  const result: SandboxRuntimeConfig = {
+    ...base,
+    network: { ...base.network },
+    filesystem: { ...base.filesystem },
+  };
+
+  if (overrides.network) {
+    result.network = { ...result.network, ...overrides.network };
+  }
+  if (overrides.filesystem) {
+    result.filesystem = { ...result.filesystem, ...overrides.filesystem };
+  }
+
+  return result;
+}
+
+export function mergeWithConcatenation(
+  base: SandboxRuntimeConfig,
+  overrides: Partial<NetworkAndFsConfig>,
+): SandboxRuntimeConfig {
+  const result: SandboxRuntimeConfig = {
+    ...base,
+    network: {
+      ...base.network,
+      allowedDomains: [
+        ...(base.network.allowedDomains || []),
+        ...(overrides.network?.allowedDomains || []),
+      ],
+      deniedDomains: [
+        ...(base.network.deniedDomains || []),
+        ...(overrides.network?.deniedDomains || []),
+      ],
+    },
+    filesystem: {
+      ...base.filesystem,
+      denyRead: [
+        ...(base.filesystem.denyRead || []),
+        ...(overrides.filesystem?.denyRead || []),
+      ],
+      denyWrite: [
+        ...(base.filesystem.denyWrite || []),
+        ...(overrides.filesystem?.denyWrite || []),
+      ],
+      denyReadAfterAllow: [
+        ...(base.filesystem.denyReadAfterAllow || []),
+        ...(overrides.filesystem?.denyReadAfterAllow || []),
+      ],
+      allowWrite: [
+        ...(base.filesystem.allowWrite || []),
+        ...(overrides.filesystem?.allowWrite || []),
+      ],
+      allowRead: [
+        ...(base.filesystem.allowRead || []),
+        ...(overrides.filesystem?.allowRead || []),
+      ],
+    },
+  };
+
+  return result;
 }

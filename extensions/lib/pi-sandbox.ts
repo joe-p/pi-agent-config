@@ -1,6 +1,8 @@
 import { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import {
   CommandConfig,
+  mergeWithConcatenation,
+  mergeWithOverwrites,
   NetworkAndFsConfig,
   ParentCommand,
   ScopedSandbox,
@@ -666,67 +668,6 @@ Do NOT attempt to make changes - just describe what you would do.`,
     if (choice === "project") addWritePathToConfig(projectPath, filePath);
     if (choice === "global") addWritePathToConfig(globalPath, filePath);
   }
-}
-
-function mergeWithOverwrites(
-  base: SandboxRuntimeConfig,
-  overrides: Partial<NetworkAndFsConfig>,
-): SandboxRuntimeConfig {
-  const result: SandboxRuntimeConfig = {
-    ...base,
-    network: { ...base.network },
-    filesystem: { ...base.filesystem },
-  };
-
-  if (overrides.network) {
-    result.network = { ...result.network, ...overrides.network };
-  }
-  if (overrides.filesystem) {
-    result.filesystem = { ...result.filesystem, ...overrides.filesystem };
-  }
-
-  return result;
-}
-
-function mergeWithConcatenation(
-  base: SandboxRuntimeConfig,
-  overrides: Partial<NetworkAndFsConfig>,
-): SandboxRuntimeConfig {
-  const result: SandboxRuntimeConfig = {
-    ...base,
-    network: {
-      ...base.network,
-      allowedDomains: [
-        ...(base.network.allowedDomains || []),
-        ...(overrides.network?.allowedDomains || []),
-      ],
-      deniedDomains: [
-        ...(base.network.deniedDomains || []),
-        ...(overrides.network?.deniedDomains || []),
-      ],
-    },
-    filesystem: {
-      ...base.filesystem,
-      denyRead: [
-        ...(base.filesystem.denyRead || []),
-        ...(overrides.filesystem?.denyRead || []),
-      ],
-      denyWrite: [
-        ...(base.filesystem.denyWrite || []),
-        ...(overrides.filesystem?.denyWrite || []),
-      ],
-      allowWrite: [
-        ...(base.filesystem.allowWrite || []),
-        ...(overrides.filesystem?.allowWrite || []),
-      ],
-      allowRead: [
-        ...(base.filesystem.allowRead || []),
-        ...(overrides.filesystem?.allowRead || []),
-      ],
-    },
-  };
-
-  return result;
 }
 
 // ── Domain helpers ────────────────────────────────────────────────────────────

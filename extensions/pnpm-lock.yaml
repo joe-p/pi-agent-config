@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@joe-p/sandbox-runtime':
-        specifier: ^0.0.1
-        version: 0.0.1
+        specifier: ^0.0.2
+        version: 0.0.2
       '@mariozechner/pi-agent-core':
         specifier: ^0.69.0
         version: 0.69.0(ws@8.20.0)(zod@4.3.6)
@@ -306,8 +306,8 @@ packages:
       '@modelcontextprotocol/sdk':
         optional: true
 
-  '@joe-p/sandbox-runtime@0.0.1':
-    resolution: {integrity: sha512-dcPeArLnl0nLgAmxpkav/aycricIzGXuOW260TVDCtE8QunvMlyw+B8aUIIP1K9NrqmtTjq1z76nWOrx25vxVQ==}
+  '@joe-p/sandbox-runtime@0.0.2':
+    resolution: {integrity: sha512-ukRb/tEChw03v/9W57NKujGtWeQRwy0GPwvWrOo+/zEXcesvHQzy8FlOf+eb+DcrZP+DoKvUXQPOaYNGOKUWyw==}
     engines: {node: '>=18.0.0'}
     hasBin: true
 
@@ -2276,7 +2276,7 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@joe-p/sandbox-runtime@0.0.1':
+  '@joe-p/sandbox-runtime@0.0.2':
     dependencies:
       '@pondwader/socks5-server': 1.0.10
       commander: 12.1.0
