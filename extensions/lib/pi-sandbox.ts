@@ -238,7 +238,7 @@ export class PiSandbox {
     ];
     return allPaths.filter((path) => {
       return !denyReadAfterAllow.some((pattern) => {
-        return !matchesGlob(basename(path), pattern);
+        return matchesGlob(basename(path), pattern);
       });
     });
   }
