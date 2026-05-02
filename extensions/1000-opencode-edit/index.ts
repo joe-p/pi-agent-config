@@ -111,7 +111,7 @@ export default function (pi: ExtensionAPI) {
     label: "Edit",
     description: DESC,
     parameters: Type.Object({
-      filePath: Type.String({
+      path: Type.String({
         description: "The absolute path to the file to modify",
       }),
       oldString: Type.String({ description: "The text to replace" }),
@@ -128,7 +128,7 @@ export default function (pi: ExtensionAPI) {
     async execute(
       _toolCallId: string,
       params: {
-        filePath: string;
+        path: string;
         oldString: string;
         newString: string;
         replaceAll?: boolean;
@@ -138,8 +138,8 @@ export default function (pi: ExtensionAPI) {
       ctx: ExtensionContext,
     ) {
       try {
-        if (!params.filePath) {
-          throw new Error("filePath is required");
+        if (!params.path) {
+          throw new Error("path is required");
         }
 
         if (params.oldString === params.newString) {
@@ -148,9 +148,9 @@ export default function (pi: ExtensionAPI) {
           );
         }
 
-        const filePath = path.isAbsolute(params.filePath)
-          ? params.filePath
-          : path.join(ctx.cwd, params.filePath);
+        const filePath = path.isAbsolute(params.path)
+          ? params.path
+          : path.join(ctx.cwd, params.path);
 
         let diff = "";
         let contentOld = "";
