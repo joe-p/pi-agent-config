@@ -1,6 +1,5 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import {
-  CommandConfig,
   emptyRuntimeConfig,
   NetworkAndFsConfig,
   ScopedSandbox,
@@ -15,10 +14,21 @@ const MANDATORY_CONFIG: NetworkAndFsConfig = {
   },
   filesystem: {
     denyRead: ["~/"],
-    allowRead: ["~/.config", "~/.local", "~/.gitconfig", "~/.cache"],
-    denyReadAfterAllow: [".env", ".env.*", "*.pem", "*.key", ".pi"],
+    // Ideally we'd be more restrictive and deny access to things that may contain secret material
+    // like .env and .pem files. Unfortunately, this makes it really hard to use tools because they
+    // often implicitly read these things (for example, Python reads .pem certs from the .venv for TLS)
+    // Because we are allowing read on potentially secret data, being strict about network access becomes even more important
+    allowRead: [
+      "~/.config",
+      "~/.local",
+      "~/.gitconfig",
+      "~/.cache",
+      "~/git",
+      ".",
+    ],
+    denyReadAfterAllow: [],
     allowWrite: [],
-    denyWrite: [".git"],
+    denyWrite: ["**/.git"],
   },
 };
 
@@ -29,7 +39,7 @@ const sandboxes = {
       runtimeConfig: {
         ...emptyRuntimeConfig(),
         filesystem: {
-          allowRead: ["."],
+          allowRead: [],
           denyRead: [],
           allowWrite: [".", "/tmp"],
           denyWrite: [],
@@ -44,7 +54,7 @@ const sandboxes = {
       runtimeConfig: {
         ...emptyRuntimeConfig(),
         filesystem: {
-          allowRead: ["."],
+          allowRead: [],
           denyRead: [],
           denyWrite: [],
           allowWrite: [],
@@ -67,7 +77,7 @@ jsPackageManagers.forEach((pm) => {
     alwayDenyWithMessage: false,
     runtimeConfig: {
       filesystem: {
-        allowRead: ["."],
+        allowRead: [],
         allowWrite: ["node_modules/.vite-temp"],
         denyRead: [],
         denyWrite: [],
@@ -94,9 +104,9 @@ jsPackageManagers.forEach((pm) => {
           // .git so we should be safe.
           skipMandatoryDenyPatterns: true,
 
+          allowRead: [],
           // TODO: further restrict to only allow read/writes on package.json, node_modules, and lock file.
           // This will require logic to find the package.json and/or node_modules
-          allowRead: ["."],
           allowWrite: ["."],
 
           denyRead: [],
@@ -142,12 +152,12 @@ sandbox.addConfig("both", "uv", {
   runtimeConfig: {
     network: {
       allowLocalBinding: true,
-      allowedDomains: [],
+      allowedDomains: ["pypi.org"],
       deniedDomains: [],
     },
     filesystem: {
-      allowRead: ["."],
-      allowWrite: ["~/.cache/uv"],
+      allowRead: [],
+      allowWrite: ["~/.cache/uv", "**/.pytest_cache"],
       denyRead: [],
       denyWrite: [],
     },
