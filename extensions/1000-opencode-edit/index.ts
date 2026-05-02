@@ -1,4 +1,7 @@
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import type {
+  ExtensionAPI,
+  ExtensionContext,
+} from "@mariozechner/pi-coding-agent";
 import { Type } from "typebox";
 import * as path from "node:path";
 import * as fs from "node:fs/promises";
@@ -99,8 +102,12 @@ async function diffLines(oldContent: string, newContent: string) {
 }
 
 export default function (pi: ExtensionAPI) {
+  pi.on("session_start", (_, _ctx: ExtensionContext) => {
+    pi.setActiveTools(pi.getActiveTools().filter((t) => t !== "edit"));
+  });
+
   pi.registerTool({
-    name: "edit",
+    name: "file_edit",
     label: "Edit",
     description: DESC,
     parameters: Type.Object({
@@ -119,16 +126,16 @@ export default function (pi: ExtensionAPI) {
       ),
     }),
     async execute(
-      toolCallId: string,
+      _toolCallId: string,
       params: {
         filePath: string;
         oldString: string;
         newString: string;
         replaceAll?: boolean;
       },
-      signal: AbortSignal | undefined,
+      _signal: AbortSignal | undefined,
       _onUpdate,
-      ctx: { cwd: string },
+      ctx: ExtensionContext,
     ) {
       try {
         if (!params.filePath) {
