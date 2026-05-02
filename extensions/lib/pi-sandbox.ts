@@ -10,7 +10,7 @@ import {
 import { TextContent } from "@mariozechner/pi-ai";
 import { AgentMessage } from "@mariozechner/pi-agent-core";
 import { SandboxRuntimeConfig } from "@joe-p/sandbox-runtime";
-import { basename, dirname, join, resolve } from "node:path";
+import path, { basename, dirname, join, resolve } from "node:path";
 import { homedir } from "node:os";
 import { existsSync } from "node:fs";
 import { spawn } from "node:child_process";
@@ -29,6 +29,7 @@ import {
 } from "@mariozechner/pi-coding-agent";
 import { Key } from "@mariozechner/pi-tui";
 import { exec } from "node:child_process";
+import { minimatch } from "minimatch";
 
 const PLAN_MODE_TOOLS = [
   "read",
@@ -244,7 +245,7 @@ export class PiSandbox {
     ];
     return allPaths.filter((path) => {
       return !denyReadAfterAllow.some((pattern) => {
-        return matchesGlob(basename(path), pattern);
+        return matchesPattern(basename(path), [pattern]);
       });
     });
   }
@@ -358,78 +359,86 @@ export class PiSandbox {
     // ── tool_call — network pre-check for bash, path policy for read/write/edit
 
     pi.on("tool_call", async (event, ctx) => {
-      const config = sandbox.loadConfig(ctx.cwd);
+      try {
+        const config = sandbox.loadConfig(ctx.cwd);
 
-      const { projectPath, globalPath } = getConfigPaths(ctx.cwd);
+        const { projectPath, globalPath } = getConfigPaths(ctx.cwd);
 
-      // Path policy: read tool.
-      //   - If the path is already in effectiveAllowRead, allow silently.
-      //   - Otherwise always prompt, regardless of denyRead.
-      //   - Granting (session or permanent) adds to allowRead, which overrides denyRead.
-      //   - denyRead is never a hard-block on its own — it just sets the default
-      //     denied state that the prompt can override.
-      if (isToolCallEventType("read", event)) {
-        const filePath = event.input.path;
-        const effectiveAllowRead = sandbox.getEffectiveAllowRead(ctx.cwd);
+        // Path policy: read tool.
+        //   - If the path is already in effectiveAllowRead, allow silently.
+        //   - Otherwise always prompt, regardless of denyRead.
+        //   - Granting (session or permanent) adds to allowRead, which overrides denyRead.
+        //   - denyRead is never a hard-block on its own — it just sets the default
+        //     denied state that the prompt can override.
+        if (isToolCallEventType("read", event)) {
+          const filePath = event.input.path;
+          const effectiveAllowRead = sandbox.getEffectiveAllowRead(ctx.cwd);
 
-        if (!matchesPattern(filePath, effectiveAllowRead)) {
-          const choice = await promptReadBlock(ctx, filePath);
-          if (choice === "abort") {
-            return {
-              block: true,
-              reason: `Sandbox: read access denied for "${filePath}"`,
-            };
+          if (!matchesPattern(filePath, effectiveAllowRead)) {
+            const choice = await promptReadBlock(ctx, filePath);
+            if (choice === "abort") {
+              return {
+                block: true,
+                reason: `Sandbox: read access denied for "${filePath}"`,
+              };
+            }
+            await sandbox.applyReadChoice(choice, filePath, ctx.cwd);
+            // Allowed — fall through, tool runs.
+            return;
           }
-          await sandbox.applyReadChoice(choice, filePath, ctx.cwd);
-          // Allowed — fall through, tool runs.
-          return;
         }
-      }
 
-      // Path policy: write/edit — prompt for allowWrite, hard-block for denyWrite.
-      if (
-        isToolCallEventType("write", event) ||
-        isToolCallEventType("edit", event)
-      ) {
-        const path = (event.input as { path: string }).path;
-        const allowWrite = sandbox.getEffectiveAllowWrite(ctx.cwd);
-        const denyWrite = config.filesystem?.denyWrite ?? [];
+        // Path policy: write/edit — prompt for allowWrite, hard-block for denyWrite.
+        if (
+          isToolCallEventType("write", event) ||
+          isToolCallEventType("edit", event)
+        ) {
+          const path = (event.input as { path: string }).path;
+          const allowWrite = sandbox.getEffectiveAllowWrite(ctx.cwd);
+          const denyWrite = config.filesystem?.denyWrite ?? [];
 
-        if (allowWrite.length > 0 && !matchesPattern(path, allowWrite)) {
-          const choice = await promptWriteBlock(ctx, path);
-          if (choice === "abort") {
-            return {
-              block: true,
-              reason: `Sandbox: write access denied for "${path}" (not in allowWrite)`,
-            };
+          if (allowWrite.length > 0 && !matchesPattern(path, allowWrite)) {
+            const choice = await promptWriteBlock(ctx, path);
+            if (choice === "abort") {
+              return {
+                block: true,
+                reason: `Sandbox: write access denied for "${path}" (not in allowWrite (${allowWrite}))`,
+              };
+            }
+            await sandbox.applyWriteChoice(choice, path, ctx.cwd);
+
+            // denyWrite takes precedence — warn if it would still block.
+            if (matchesPattern(path, denyWrite)) {
+              ctx.ui.notify(
+                `⚠️ "${path}" was added to allowWrite, but it is also in denyWrite and will remain blocked.\n` +
+                  `Check denyWrite in:\n  ${projectPath}\n  ${globalPath}`,
+                "warning",
+              );
+              return {
+                block: true,
+                reason: `Sandbox: write access denied for "${path}" (also in denyWrite)`,
+              };
+            }
+
+            // Allowed — fall through, tool runs.
+            return;
           }
-          await sandbox.applyWriteChoice(choice, path, ctx.cwd);
 
-          // denyWrite takes precedence — warn if it would still block.
           if (matchesPattern(path, denyWrite)) {
-            ctx.ui.notify(
-              `⚠️ "${path}" was added to allowWrite, but it is also in denyWrite and will remain blocked.\n` +
-                `Check denyWrite in:\n  ${projectPath}\n  ${globalPath}`,
-              "warning",
-            );
             return {
               block: true,
-              reason: `Sandbox: write access denied for "${path}" (also in denyWrite)`,
+              reason:
+                `Sandbox: write access denied for "${path}" (in denyWrite). ` +
+                `To change this, edit denyWrite in:\n  ${projectPath}\n  ${globalPath}\nCurrent deny write:\n  ${denyWrite}`,
             };
           }
-
-          // Allowed — fall through, tool runs.
-          return;
         }
+      } catch (e) {
+        ctx.ui.notify(JSON.stringify(e, null, 2));
 
-        if (matchesPattern(path, denyWrite)) {
-          return {
-            block: true,
-            reason:
-              `Sandbox: write access denied for "${path}" (in denyWrite). ` +
-              `To change this, edit denyWrite in:\n  ${projectPath}\n  ${globalPath}`,
-          };
-        }
+        throw Error(`Error in sandbox write hook! ${(e as Error).stack}`, {
+          cause: e,
+        });
       }
     });
 
@@ -721,13 +730,6 @@ function extractBlockedWritePath(output: string): string | null {
 
 // ── Path pattern matching ─────────────────────────────────────────────────────
 
-// Escape regex metacharacters, including hyphen (which is special inside character classes)
-const REGEX_ESCAPE_CHARS = /[.+^${}()|[\]\\-]/g;
-
-function escapeRegex(str: string): string {
-  return str.replace(REGEX_ESCAPE_CHARS, "\\$&");
-}
-
 /**
  * Resolve a path to its real absolute path, following symlinks.
  * Returns null if the path doesn't exist (for newly-created paths in write ops).
@@ -743,49 +745,27 @@ function resolveRealPath(filePath: string): string | null {
   }
 }
 
-/**
- * Match a string against a glob pattern where * matches any sequence of characters.
- * Used for filename matching (e.g., "*.pem" matches ".pem").
- */
-function matchesGlob(value: string, pattern: string): boolean {
-  const escaped = pattern
-    .replace(/[.+^${}()|[\]\\]/g, "\\$&")
-    .replace(/\*/g, ".*");
-  const regex = new RegExp(`^${escaped}$`);
-  return regex.test(value);
-}
-
 function matchesPattern(filePath: string, patterns: string[]): boolean {
   const realPath = resolveRealPath(filePath);
   if (!realPath) return false;
 
-  // Also check the path itself for patterns that might match parent paths
-  const pathsToCheck: string[] = [realPath];
+  let currentPath = realPath;
 
-  for (const p of patterns) {
-    const expandedP = p.replace(/^~/, homedir());
-    const absP = resolve(expandedP);
-
-    // Normalize trailing slash for directory patterns
-    const normalizedPattern = absP.replace(/\/$/, "");
-
-    for (const checkPath of pathsToCheck) {
-      if (p.includes("*")) {
-        const escaped = escapeRegex(normalizedPattern).replace(/\\\*/g, ".*");
-        if (new RegExp(`^${escaped}$`).test(checkPath)) {
-          return true;
-        }
-      } else {
-        // Check exact match or directory prefix (trailing slash is safe now)
-        if (
-          checkPath === normalizedPattern ||
-          checkPath.startsWith(normalizedPattern + "/")
-        ) {
-          return true;
-        }
-      }
+  // In sandbox filesystem rules, "." means "." and all subdirectories,
+  // so we walk parent directories and see if we get a match
+  while (true) {
+    for (const pat of patterns) {
+      const matched =
+        minimatch(currentPath, pat) ||
+        minimatch(currentPath, resolveRealPath(pat) ?? pat);
+      if (matched) return true;
     }
+
+    let parent = path.dirname(currentPath);
+    if (parent === currentPath) break;
+    currentPath = parent;
   }
+
   return false;
 }
 
