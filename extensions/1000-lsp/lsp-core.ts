@@ -77,9 +77,7 @@ interface LSPServerConfig {
   id: string;
   extensions: string[];
   findRoot: (file: string, cwd: string) => string | undefined;
-  spawn: (
-    root: string,
-  ) => Promise<
+  spawn: (root: string) => Promise<
     | {
         process: ChildProcessWithoutNullStreams;
         initOptions?: Record<string, unknown>;
@@ -528,13 +526,8 @@ export const LSP_SERVERS: LSPServerConfig[] = [
       ]);
     },
     spawn: async (root) => {
-      const local = path.join(
-        root,
-        "node_modules/.bin/typescript-language-server",
-      );
-      const cmd = fs.existsSync(local)
-        ? local
-        : which("typescript-language-server");
+      const local = path.join(root, "vtsls");
+      const cmd = fs.existsSync(local) ? local : which("vtsls");
       if (!cmd) return undefined;
       return {
         process: spawn(cmd, ["--stdio"], {
