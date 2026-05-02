@@ -67,7 +67,7 @@ const sandboxes = {
 
 export const sandbox = new PiSandbox(sandboxes);
 
-const jsPackageManagers = ["npm", "deno", "bun"];
+const jsPackageManagers = ["npm", "deno", "bun", "pnpm"];
 const jsInstallSubCommands = ["i", "add", "install"];
 
 jsPackageManagers.forEach((pm) => {

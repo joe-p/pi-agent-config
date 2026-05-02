@@ -2,8 +2,9 @@ import {
   SandboxManager,
   type SandboxRuntimeConfig,
 } from "@joe-p/sandbox-runtime";
-import { parse } from "shell-quote";
+import { parse, ParseEntry } from "shell-quote";
 import crypto from "crypto";
+import { appendFileSync, writeFileSync } from "fs";
 
 export type ParentCommand = { command: string; id: string };
 
@@ -62,64 +63,83 @@ export class ScopedSandbox {
    * For example, if scoped commands has ["npm", "npm add", "npm add --dev"]
    * and we call with "npm add --dev some-package", we use the config for "npm add --dev"
    */
-  getCommandConfig(command: string):
-    | {
-        config: CommandConfig;
-        matchedKey: string;
-      }
-    | undefined {
+  getCommandConfig(command: string): {
+    config: CommandConfig;
+    matchedKey?: string;
+  } {
     const matches = Object.keys(this.scopedCommands).filter((key) => {
-      return command === key || command.startsWith(key + " ");
+      return command === key || command.startsWith(key);
     });
 
+    let config;
+    let matchedKey = undefined;
+
     if (matches.length === 0) {
-      return undefined;
+      config = this.defaultConfig;
+    } else {
+      matches.sort((a, b) => b.split(" ").length - a.split(" ").length);
+      matchedKey = matches[0]!;
+
+      config = this.scopedCommands[matchedKey]!;
     }
 
-    matches.sort((a, b) => b.split(" ").length - a.split(" ").length);
-    const matchedKey = matches[0]!;
-
-    const config = this.scopedCommands[matchedKey]!;
     return { config, matchedKey };
   }
 
-  // TODO: put this behind mutex
+  parseCommands(parsed: ParseEntry[]): string[] {
+    const commands: string[] = [];
+    let currentArgs: string[] = [];
+
+    for (const token of parsed) {
+      if (typeof token === "string") {
+        currentArgs.push(token);
+      } else if (typeof token === "object" && token !== null && "op" in token) {
+        if (currentArgs.length > 0) {
+          commands.push(currentArgs.join(" "));
+          currentArgs = [];
+        }
+      }
+    }
+
+    if (currentArgs.length > 0) {
+      commands.push(currentArgs.join(" "));
+    }
+
+    return commands;
+  }
+
   async withWrappedCommand(
     command: string,
     cb: (wrappedCommand: string) => Promise<void>,
   ): Promise<void> {
     const parentCommand: ParentCommand = { command, id: crypto.randomUUID() };
 
-    // TODO: merge runtime configs
-    const runtimeConfig = mergeWithConcatenation(
-      this.getCommandConfig(command)?.config.runtimeConfig ??
-        this.defaultConfig.runtimeConfig,
-      this.mandatoryConfig,
-    );
+    const commands = this.parseCommands(parse(command));
+
+    let runtimeConfig = this.mandatoryConfig;
+    for (const subCmd of commands) {
+      const { config, matchedKey } = this.getCommandConfig(subCmd);
+
+      if (config.alwayDenyWithMessage) {
+        throw Error(
+          `ScopedSandbox [${matchedKey}]: ${config.alwayDenyWithMessage}`,
+        );
+      }
+
+      if (config.approvalAssertion) {
+        await config.approvalAssertion(subCmd, parentCommand);
+      }
+
+      runtimeConfig = mergeWithConcatenation(
+        runtimeConfig,
+        this.getCommandConfig(subCmd).config.runtimeConfig,
+      );
+    }
 
     const initPromise = initialize(runtimeConfig);
     // After initialization, update config with the runtime config
     // This ensures command-specific configurations (like allowedDomains) are applied
     SandboxManager.updateConfig(runtimeConfig);
-
-    for (const e of parse(command)) {
-      if (typeof e === "string") {
-        const { config, matchedKey } = this.getCommandConfig(command) ?? {
-          config: this.defaultConfig,
-          matchedKey: "default",
-        };
-
-        if (config.alwayDenyWithMessage) {
-          throw Error(
-            `ScopedSandbox [${matchedKey}]: ${config.alwayDenyWithMessage}`,
-          );
-        }
-
-        if (config.approvalAssertion) {
-          await config.approvalAssertion(e, parentCommand);
-        }
-      }
-    }
 
     const wrappedCmd = await SandboxManager.wrapWithSandbox(
       command,
