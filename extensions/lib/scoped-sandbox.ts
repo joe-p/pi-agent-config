@@ -4,7 +4,6 @@ import {
 } from "@joe-p/sandbox-runtime";
 import { parse, ParseEntry } from "shell-quote";
 import crypto from "crypto";
-import { appendFileSync, writeFileSync } from "fs";
 
 export type ParentCommand = { command: string; id: string };
 
@@ -191,6 +190,9 @@ export function mergeWithConcatenation(
     },
     filesystem: {
       ...base.filesystem,
+      skipMandatoryDenyPatterns:
+        base.filesystem.skipMandatoryDenyPatterns ||
+        overrides.filesystem?.skipMandatoryDenyPatterns,
       denyRead: [
         ...(base.filesystem.denyRead || []),
         ...(overrides.filesystem?.denyRead || []),
