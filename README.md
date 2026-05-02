@@ -69,6 +69,10 @@ The [keyring](./extensions/1000-keyring.ts) extension enables usage of the OS ke
 
 The [web](./extensions/1000-web.ts) extension adds two tools to Pi: `web_search` and `web_fetch`. `web_search` uses the Brave API (with API key stored in keyring). Both tools respect the sandbox settings for the current mode.
 
+### File Editing: OpenCode-Inspired
+
+The [edit](./extensions/1000-opencode-edit/index.ts) extension is a edit tool based on the [OpenCode](https://github.com/anomalyco/opencode/blob/3910a6e527c87f514c479a1c1c3d6d5f4d1aa315/packages/opencode/src/tool/edit.ts) edit tool. It tries multiple matching algorithms before returning an error, which results in a much higher success rate than the built-in `edit` tool.
+
 ### OpenRouter
 
 The [OpenRouter](./extensions/1000-openrouter.ts) extension adds OpenRouter-specific [configuration file](./openrouter.json) for specifying request parameters such as provider order, provider fallback, data retention filtering, and data collection policy.
