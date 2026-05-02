@@ -7,9 +7,9 @@
  */
 
 // Suppress stream errors from vscode-jsonrpc when LSP process exits
-process.on('uncaughtException', (err) => {
-  if (err.message?.includes('write after end')) return;
-  console.error('Uncaught:', err);
+process.on("uncaughtException", (err) => {
+  if (err.message?.includes("write after end")) return;
+  console.error("Uncaught:", err);
   process.exit(1);
 });
 
@@ -80,9 +80,12 @@ test("typescript: detects type errors", async () => {
 
   try {
     await writeFile(join(dir, "package.json"), "{}");
-    await writeFile(join(dir, "tsconfig.json"), JSON.stringify({
-      compilerOptions: { strict: true, noEmit: true }
-    }));
+    await writeFile(
+      join(dir, "tsconfig.json"),
+      JSON.stringify({
+        compilerOptions: { strict: true, noEmit: true },
+      }),
+    );
 
     // Code with type error
     const file = join(dir, "index.ts");
@@ -90,10 +93,15 @@ test("typescript: detects type errors", async () => {
 
     const { diagnostics } = await manager.touchFileAndWait(file, 10000);
 
-    assert(diagnostics.length > 0, `Expected errors, got ${diagnostics.length}`);
     assert(
-      diagnostics.some(d => d.message.toLowerCase().includes("type") || d.severity === 1),
-      `Expected type error, got: ${diagnostics.map(d => d.message).join(", ")}`
+      diagnostics.length > 0,
+      `Expected errors, got ${diagnostics.length}`,
+    );
+    assert(
+      diagnostics.some(
+        (d) => d.message.toLowerCase().includes("type") || d.severity === 1,
+      ),
+      `Expected type error, got: ${diagnostics.map((d) => d.message).join(", ")}`,
     );
   } finally {
     await manager.shutdown();
@@ -111,17 +119,23 @@ test("typescript: valid code has no errors", async () => {
 
   try {
     await writeFile(join(dir, "package.json"), "{}");
-    await writeFile(join(dir, "tsconfig.json"), JSON.stringify({
-      compilerOptions: { strict: true, noEmit: true }
-    }));
+    await writeFile(
+      join(dir, "tsconfig.json"),
+      JSON.stringify({
+        compilerOptions: { strict: true, noEmit: true },
+      }),
+    );
 
     const file = join(dir, "index.ts");
     await writeFile(file, `const x: string = "hello";`);
 
     const { diagnostics } = await manager.touchFileAndWait(file, 10000);
-    const errors = diagnostics.filter(d => d.severity === 1);
+    const errors = diagnostics.filter((d) => d.severity === 1);
 
-    assert(errors.length === 0, `Expected no errors, got: ${errors.map(d => d.message).join(", ")}`);
+    assert(
+      errors.length === 0,
+      `Expected no errors, got: ${errors.map((d) => d.message).join(", ")}`,
+    );
   } finally {
     await manager.shutdown();
     await rm(dir, { recursive: true, force: true }).catch(() => {});
@@ -141,21 +155,30 @@ test("dart: detects type errors", async () => {
   const manager = new LSPManager(dir);
 
   try {
-    await writeFile(join(dir, "pubspec.yaml"), "name: test_app\nenvironment:\n  sdk: ^3.0.0");
+    await writeFile(
+      join(dir, "pubspec.yaml"),
+      "name: test_app\nenvironment:\n  sdk: ^3.0.0",
+    );
 
     await mkdir(join(dir, "lib"));
     const file = join(dir, "lib/main.dart");
     // Type error: assigning int to String
-    await writeFile(file, `
+    await writeFile(
+      file,
+      `
 void main() {
   String x = 123;
   print(x);
 }
-`);
+`,
+    );
 
     const { diagnostics } = await manager.touchFileAndWait(file, 15000);
 
-    assert(diagnostics.length > 0, `Expected errors, got ${diagnostics.length}`);
+    assert(
+      diagnostics.length > 0,
+      `Expected errors, got ${diagnostics.length}`,
+    );
   } finally {
     await manager.shutdown();
     await rm(dir, { recursive: true, force: true }).catch(() => {});
@@ -171,21 +194,30 @@ test("dart: valid code has no errors", async () => {
   const manager = new LSPManager(dir);
 
   try {
-    await writeFile(join(dir, "pubspec.yaml"), "name: test_app\nenvironment:\n  sdk: ^3.0.0");
+    await writeFile(
+      join(dir, "pubspec.yaml"),
+      "name: test_app\nenvironment:\n  sdk: ^3.0.0",
+    );
 
     await mkdir(join(dir, "lib"));
     const file = join(dir, "lib/main.dart");
-    await writeFile(file, `
+    await writeFile(
+      file,
+      `
 void main() {
   String x = "hello";
   print(x);
 }
-`);
+`,
+    );
 
     const { diagnostics } = await manager.touchFileAndWait(file, 15000);
-    const errors = diagnostics.filter(d => d.severity === 1);
+    const errors = diagnostics.filter((d) => d.severity === 1);
 
-    assert(errors.length === 0, `Expected no errors, got: ${errors.map(d => d.message).join(", ")}`);
+    assert(
+      errors.length === 0,
+      `Expected no errors, got: ${errors.map((d) => d.message).join(", ")}`,
+    );
   } finally {
     await manager.shutdown();
     await rm(dir, { recursive: true, force: true }).catch(() => {});
@@ -205,7 +237,10 @@ test("rust: detects type errors", async () => {
   const manager = new LSPManager(dir);
 
   try {
-    await writeFile(join(dir, "Cargo.toml"), `[package]\nname = "test"\nversion = "0.1.0"\nedition = "2021"`);
+    await writeFile(
+      join(dir, "Cargo.toml"),
+      `[package]\nname = "test"\nversion = "0.1.0"\nedition = "2021"`,
+    );
 
     await mkdir(join(dir, "src"));
     const file = join(dir, "src/main.rs");
@@ -214,7 +249,10 @@ test("rust: detects type errors", async () => {
     // rust-analyzer needs a LOT of time to initialize (compiles the project)
     const { diagnostics } = await manager.touchFileAndWait(file, 60000);
 
-    assert(diagnostics.length > 0, `Expected errors, got ${diagnostics.length}`);
+    assert(
+      diagnostics.length > 0,
+      `Expected errors, got ${diagnostics.length}`,
+    );
   } finally {
     await manager.shutdown();
     await rm(dir, { recursive: true, force: true }).catch(() => {});
@@ -230,16 +268,25 @@ test("rust: valid code has no errors", async () => {
   const manager = new LSPManager(dir);
 
   try {
-    await writeFile(join(dir, "Cargo.toml"), `[package]\nname = "test"\nversion = "0.1.0"\nedition = "2021"`);
+    await writeFile(
+      join(dir, "Cargo.toml"),
+      `[package]\nname = "test"\nversion = "0.1.0"\nedition = "2021"`,
+    );
 
     await mkdir(join(dir, "src"));
     const file = join(dir, "src/main.rs");
-    await writeFile(file, `fn main() {\n    let x = "hello";\n    println!("{}", x);\n}`);
+    await writeFile(
+      file,
+      `fn main() {\n    let x = "hello";\n    println!("{}", x);\n}`,
+    );
 
     const { diagnostics } = await manager.touchFileAndWait(file, 60000);
-    const errors = diagnostics.filter(d => d.severity === 1);
+    const errors = diagnostics.filter((d) => d.severity === 1);
 
-    assert(errors.length === 0, `Expected no errors, got: ${errors.map(d => d.message).join(", ")}`);
+    assert(
+      errors.length === 0,
+      `Expected no errors, got: ${errors.map((d) => d.message).join(", ")}`,
+    );
   } finally {
     await manager.shutdown();
     await rm(dir, { recursive: true, force: true }).catch(() => {});
@@ -263,17 +310,23 @@ test("go: detects type errors", async () => {
 
     const file = join(dir, "main.go");
     // Type error: cannot use int as string
-    await writeFile(file, `package main
+    await writeFile(
+      file,
+      `package main
 
 func main() {
 	var x string = 123
 	println(x)
 }
-`);
+`,
+    );
 
     const { diagnostics } = await manager.touchFileAndWait(file, 15000);
 
-    assert(diagnostics.length > 0, `Expected errors, got ${diagnostics.length}`);
+    assert(
+      diagnostics.length > 0,
+      `Expected errors, got ${diagnostics.length}`,
+    );
   } finally {
     await manager.shutdown();
     await rm(dir, { recursive: true, force: true }).catch(() => {});
@@ -292,18 +345,24 @@ test("go: valid code has no errors", async () => {
     await writeFile(join(dir, "go.mod"), "module test\n\ngo 1.21");
 
     const file = join(dir, "main.go");
-    await writeFile(file, `package main
+    await writeFile(
+      file,
+      `package main
 
 func main() {
 	var x string = "hello"
 	println(x)
 }
-`);
+`,
+    );
 
     const { diagnostics } = await manager.touchFileAndWait(file, 15000);
-    const errors = diagnostics.filter(d => d.severity === 1);
+    const errors = diagnostics.filter((d) => d.severity === 1);
 
-    assert(errors.length === 0, `Expected no errors, got: ${errors.map(d => d.message).join(", ")}`);
+    assert(
+      errors.length === 0,
+      `Expected no errors, got: ${errors.map((d) => d.message).join(", ")}`,
+    );
   } finally {
     await manager.shutdown();
     await rm(dir, { recursive: true, force: true }).catch(() => {});
@@ -324,7 +383,10 @@ test("kotlin: detects syntax errors", async () => {
 
   try {
     // Minimal Gradle markers so the LSP picks a root
-    await writeFile(join(dir, "settings.gradle.kts"), "rootProject.name = \"test\"\n");
+    await writeFile(
+      join(dir, "settings.gradle.kts"),
+      'rootProject.name = "test"\n',
+    );
     await writeFile(join(dir, "build.gradle.kts"), "// empty\n");
 
     await mkdir(join(dir, "src/main/kotlin"), { recursive: true });
@@ -333,10 +395,16 @@ test("kotlin: detects syntax errors", async () => {
     // Syntax error
     await writeFile(file, "fun main() { val x = }\n");
 
-    const { diagnostics, receivedResponse } = await manager.touchFileAndWait(file, 30000);
+    const { diagnostics, receivedResponse } = await manager.touchFileAndWait(
+      file,
+      30000,
+    );
 
     assert(receivedResponse, "Expected Kotlin LSP to respond");
-    assert(diagnostics.length > 0, `Expected errors, got ${diagnostics.length}`);
+    assert(
+      diagnostics.length > 0,
+      `Expected errors, got ${diagnostics.length}`,
+    );
   } finally {
     await manager.shutdown();
     await rm(dir, { recursive: true, force: true }).catch(() => {});
@@ -352,7 +420,10 @@ test("kotlin: valid code has no errors", async () => {
   const manager = new LSPManager(dir);
 
   try {
-    await writeFile(join(dir, "settings.gradle.kts"), "rootProject.name = \"test\"\n");
+    await writeFile(
+      join(dir, "settings.gradle.kts"),
+      'rootProject.name = "test"\n',
+    );
     await writeFile(join(dir, "build.gradle.kts"), "// empty\n");
 
     await mkdir(join(dir, "src/main/kotlin"), { recursive: true });
@@ -360,11 +431,17 @@ test("kotlin: valid code has no errors", async () => {
 
     await writeFile(file, "fun main() { val x = 1; println(x) }\n");
 
-    const { diagnostics, receivedResponse } = await manager.touchFileAndWait(file, 30000);
+    const { diagnostics, receivedResponse } = await manager.touchFileAndWait(
+      file,
+      30000,
+    );
 
     assert(receivedResponse, "Expected Kotlin LSP to respond");
-    const errors = diagnostics.filter(d => d.severity === 1);
-    assert(errors.length === 0, `Expected no errors, got: ${errors.map(d => d.message).join(", ")}`);
+    const errors = diagnostics.filter((d) => d.severity === 1);
+    assert(
+      errors.length === 0,
+      `Expected no errors, got: ${errors.map((d) => d.message).join(", ")}`,
+    );
   } finally {
     await manager.shutdown();
     await rm(dir, { recursive: true, force: true }).catch(() => {});
@@ -388,17 +465,23 @@ test("python: detects type errors", async () => {
 
     const file = join(dir, "main.py");
     // Type error with type annotation
-    await writeFile(file, `
+    await writeFile(
+      file,
+      `
 def greet(name: str) -> str:
     return "Hello, " + name
 
 x: str = 123  # Type error
 result = greet(456)  # Type error
-`);
+`,
+    );
 
     const { diagnostics } = await manager.touchFileAndWait(file, 10000);
 
-    assert(diagnostics.length > 0, `Expected errors, got ${diagnostics.length}`);
+    assert(
+      diagnostics.length > 0,
+      `Expected errors, got ${diagnostics.length}`,
+    );
   } finally {
     await manager.shutdown();
     await rm(dir, { recursive: true, force: true }).catch(() => {});
@@ -417,18 +500,24 @@ test("python: valid code has no errors", async () => {
     await writeFile(join(dir, "pyproject.toml"), `[project]\nname = "test"`);
 
     const file = join(dir, "main.py");
-    await writeFile(file, `
+    await writeFile(
+      file,
+      `
 def greet(name: str) -> str:
     return "Hello, " + name
 
 x: str = "world"
 result = greet(x)
-`);
+`,
+    );
 
     const { diagnostics } = await manager.touchFileAndWait(file, 10000);
-    const errors = diagnostics.filter(d => d.severity === 1);
+    const errors = diagnostics.filter((d) => d.severity === 1);
 
-    assert(errors.length === 0, `Expected no errors, got: ${errors.map(d => d.message).join(", ")}`);
+    assert(
+      errors.length === 0,
+      `Expected no errors, got: ${errors.map((d) => d.message).join(", ")}`,
+    );
   } finally {
     await manager.shutdown();
     await rm(dir, { recursive: true, force: true }).catch(() => {});
@@ -449,16 +538,22 @@ test("typescript: rename symbol", async () => {
 
   try {
     await writeFile(join(dir, "package.json"), "{}");
-    await writeFile(join(dir, "tsconfig.json"), JSON.stringify({
-      compilerOptions: { strict: true, noEmit: true }
-    }));
+    await writeFile(
+      join(dir, "tsconfig.json"),
+      JSON.stringify({
+        compilerOptions: { strict: true, noEmit: true },
+      }),
+    );
 
     const file = join(dir, "index.ts");
-    await writeFile(file, `function greet(name: string) {
+    await writeFile(
+      file,
+      `function greet(name: string) {
   return "Hello, " + name;
 }
 const result = greet("world");
-`);
+`,
+    );
 
     // Touch file first to ensure it's loaded
     await manager.touchFileAndWait(file, 10000);
@@ -469,7 +564,7 @@ const result = greet("world");
     if (!edit) throw new Error("Expected rename to return WorkspaceEdit");
     assert(
       edit.changes !== undefined || edit.documentChanges !== undefined,
-      "Expected changes or documentChanges in WorkspaceEdit"
+      "Expected changes or documentChanges in WorkspaceEdit",
     );
 
     // Should have edits for both the function definition and the call
@@ -485,7 +580,10 @@ const result = greet("world");
       }
     }
 
-    assert(allEdits.length >= 2, `Expected at least 2 edits (definition + usage), got ${allEdits.length}`);
+    assert(
+      allEdits.length >= 2,
+      `Expected at least 2 edits (definition + usage), got ${allEdits.length}`,
+    );
   } finally {
     await manager.shutdown();
     await rm(dir, { recursive: true, force: true }).catch(() => {});
@@ -506,15 +604,21 @@ test("typescript: get code actions for error", async () => {
 
   try {
     await writeFile(join(dir, "package.json"), "{}");
-    await writeFile(join(dir, "tsconfig.json"), JSON.stringify({
-      compilerOptions: { strict: true, noEmit: true }
-    }));
+    await writeFile(
+      join(dir, "tsconfig.json"),
+      JSON.stringify({
+        compilerOptions: { strict: true, noEmit: true },
+      }),
+    );
 
     const file = join(dir, "index.ts");
     // Missing import - should offer "Add import" code action
-    await writeFile(file, `const x: Promise<string> = Promise.resolve("hello");
+    await writeFile(
+      file,
+      `const x: Promise<string> = Promise.resolve("hello");
 console.log(x);
-`);
+`,
+    );
 
     // Touch to get diagnostics first
     await manager.touchFileAndWait(file, 10000);
@@ -540,14 +644,20 @@ test("typescript: code actions for missing function", async () => {
 
   try {
     await writeFile(join(dir, "package.json"), "{}");
-    await writeFile(join(dir, "tsconfig.json"), JSON.stringify({
-      compilerOptions: { strict: true, noEmit: true }
-    }));
+    await writeFile(
+      join(dir, "tsconfig.json"),
+      JSON.stringify({
+        compilerOptions: { strict: true, noEmit: true },
+      }),
+    );
 
     const file = join(dir, "index.ts");
     // Call undefined function - should offer quick fix
-    await writeFile(file, `const result = undefinedFunction();
-`);
+    await writeFile(
+      file,
+      `const result = undefinedFunction();
+`,
+    );
 
     await manager.touchFileAndWait(file, 10000);
 

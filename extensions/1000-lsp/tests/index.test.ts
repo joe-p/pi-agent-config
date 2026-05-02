@@ -24,7 +24,13 @@ function assertEqual<T>(actual: T, expected: T, message?: string) {
 // Or we can extract and test the logic directly
 // ============================================================================
 
-import { uriToPath, findSymbolPosition, formatDiagnostic, filterDiagnosticsBySeverity, collectSymbols } from "../lsp-core.js";
+import {
+  uriToPath,
+  findSymbolPosition,
+  formatDiagnostic,
+  filterDiagnosticsBySeverity,
+  collectSymbols,
+} from "../lsp-core.js";
 
 // ============================================================================
 // uriToPath tests
@@ -56,8 +62,32 @@ test("uriToPath: handles invalid URIs gracefully", () => {
 
 test("findSymbolPosition: finds exact match", () => {
   const symbols = [
-    { name: "greet", range: { start: { line: 5, character: 10 }, end: { line: 5, character: 15 } }, selectionRange: { start: { line: 5, character: 10 }, end: { line: 5, character: 15 } }, kind: 12, children: [] },
-    { name: "hello", range: { start: { line: 10, character: 0 }, end: { line: 10, character: 5 } }, selectionRange: { start: { line: 10, character: 0 }, end: { line: 10, character: 5 } }, kind: 12, children: [] },
+    {
+      name: "greet",
+      range: {
+        start: { line: 5, character: 10 },
+        end: { line: 5, character: 15 },
+      },
+      selectionRange: {
+        start: { line: 5, character: 10 },
+        end: { line: 5, character: 15 },
+      },
+      kind: 12,
+      children: [],
+    },
+    {
+      name: "hello",
+      range: {
+        start: { line: 10, character: 0 },
+        end: { line: 10, character: 5 },
+      },
+      selectionRange: {
+        start: { line: 10, character: 0 },
+        end: { line: 10, character: 5 },
+      },
+      kind: 12,
+      children: [],
+    },
   ];
   const pos = findSymbolPosition(symbols as any, "greet");
   assertEqual(pos, { line: 5, character: 10 });
@@ -65,7 +95,19 @@ test("findSymbolPosition: finds exact match", () => {
 
 test("findSymbolPosition: finds partial match", () => {
   const symbols = [
-    { name: "getUserName", range: { start: { line: 3, character: 0 }, end: { line: 3, character: 11 } }, selectionRange: { start: { line: 3, character: 0 }, end: { line: 3, character: 11 } }, kind: 12, children: [] },
+    {
+      name: "getUserName",
+      range: {
+        start: { line: 3, character: 0 },
+        end: { line: 3, character: 11 },
+      },
+      selectionRange: {
+        start: { line: 3, character: 0 },
+        end: { line: 3, character: 11 },
+      },
+      kind: 12,
+      children: [],
+    },
   ];
   const pos = findSymbolPosition(symbols as any, "user");
   assertEqual(pos, { line: 3, character: 0 });
@@ -73,8 +115,32 @@ test("findSymbolPosition: finds partial match", () => {
 
 test("findSymbolPosition: prefers exact over partial", () => {
   const symbols = [
-    { name: "userName", range: { start: { line: 1, character: 0 }, end: { line: 1, character: 8 } }, selectionRange: { start: { line: 1, character: 0 }, end: { line: 1, character: 8 } }, kind: 12, children: [] },
-    { name: "user", range: { start: { line: 5, character: 0 }, end: { line: 5, character: 4 } }, selectionRange: { start: { line: 5, character: 0 }, end: { line: 5, character: 4 } }, kind: 12, children: [] },
+    {
+      name: "userName",
+      range: {
+        start: { line: 1, character: 0 },
+        end: { line: 1, character: 8 },
+      },
+      selectionRange: {
+        start: { line: 1, character: 0 },
+        end: { line: 1, character: 8 },
+      },
+      kind: 12,
+      children: [],
+    },
+    {
+      name: "user",
+      range: {
+        start: { line: 5, character: 0 },
+        end: { line: 5, character: 4 },
+      },
+      selectionRange: {
+        start: { line: 5, character: 0 },
+        end: { line: 5, character: 4 },
+      },
+      kind: 12,
+      children: [],
+    },
   ];
   const pos = findSymbolPosition(symbols as any, "user");
   assertEqual(pos, { line: 5, character: 0 });
@@ -82,14 +148,32 @@ test("findSymbolPosition: prefers exact over partial", () => {
 
 test("findSymbolPosition: searches nested children", () => {
   const symbols = [
-    { 
-      name: "MyClass", 
-      range: { start: { line: 0, character: 0 }, end: { line: 10, character: 0 } }, 
-      selectionRange: { start: { line: 0, character: 0 }, end: { line: 0, character: 7 } }, 
+    {
+      name: "MyClass",
+      range: {
+        start: { line: 0, character: 0 },
+        end: { line: 10, character: 0 },
+      },
+      selectionRange: {
+        start: { line: 0, character: 0 },
+        end: { line: 0, character: 7 },
+      },
       kind: 5,
       children: [
-        { name: "myMethod", range: { start: { line: 2, character: 2 }, end: { line: 4, character: 2 } }, selectionRange: { start: { line: 2, character: 2 }, end: { line: 2, character: 10 } }, kind: 6, children: [] },
-      ]
+        {
+          name: "myMethod",
+          range: {
+            start: { line: 2, character: 2 },
+            end: { line: 4, character: 2 },
+          },
+          selectionRange: {
+            start: { line: 2, character: 2 },
+            end: { line: 2, character: 10 },
+          },
+          kind: 6,
+          children: [],
+        },
+      ],
     },
   ];
   const pos = findSymbolPosition(symbols as any, "myMethod");
@@ -98,7 +182,19 @@ test("findSymbolPosition: searches nested children", () => {
 
 test("findSymbolPosition: returns null for no match", () => {
   const symbols = [
-    { name: "foo", range: { start: { line: 0, character: 0 }, end: { line: 0, character: 3 } }, selectionRange: { start: { line: 0, character: 0 }, end: { line: 0, character: 3 } }, kind: 12, children: [] },
+    {
+      name: "foo",
+      range: {
+        start: { line: 0, character: 0 },
+        end: { line: 0, character: 3 },
+      },
+      selectionRange: {
+        start: { line: 0, character: 0 },
+        end: { line: 0, character: 3 },
+      },
+      kind: 12,
+      children: [],
+    },
   ];
   const pos = findSymbolPosition(symbols as any, "bar");
   assertEqual(pos, null);
@@ -106,7 +202,19 @@ test("findSymbolPosition: returns null for no match", () => {
 
 test("findSymbolPosition: case insensitive", () => {
   const symbols = [
-    { name: "MyFunction", range: { start: { line: 0, character: 0 }, end: { line: 0, character: 10 } }, selectionRange: { start: { line: 0, character: 0 }, end: { line: 0, character: 10 } }, kind: 12, children: [] },
+    {
+      name: "MyFunction",
+      range: {
+        start: { line: 0, character: 0 },
+        end: { line: 0, character: 10 },
+      },
+      selectionRange: {
+        start: { line: 0, character: 0 },
+        end: { line: 0, character: 10 },
+      },
+      kind: 12,
+      children: [],
+    },
   ];
   const pos = findSymbolPosition(symbols as any, "myfunction");
   assertEqual(pos, { line: 0, character: 0 });
@@ -118,12 +226,18 @@ test("findSymbolPosition: case insensitive", () => {
 
 test("formatDiagnostic: formats error", () => {
   const diag = {
-    range: { start: { line: 5, character: 10 }, end: { line: 5, character: 15 } },
+    range: {
+      start: { line: 5, character: 10 },
+      end: { line: 5, character: 15 },
+    },
     message: "Type 'number' is not assignable to type 'string'",
     severity: 1,
   };
   const result = formatDiagnostic(diag as any);
-  assertEqual(result, "ERROR [6:11] Type 'number' is not assignable to type 'string'");
+  assertEqual(
+    result,
+    "ERROR [6:11] Type 'number' is not assignable to type 'string'",
+  );
 });
 
 test("formatDiagnostic: formats warning", () => {
@@ -138,7 +252,10 @@ test("formatDiagnostic: formats warning", () => {
 
 test("formatDiagnostic: formats info", () => {
   const diag = {
-    range: { start: { line: 2, character: 4 }, end: { line: 2, character: 10 } },
+    range: {
+      start: { line: 2, character: 4 },
+      end: { line: 2, character: 10 },
+    },
     message: "Consider using const",
     severity: 3,
   };
@@ -162,10 +279,38 @@ test("formatDiagnostic: formats hint", () => {
 
 test("filterDiagnosticsBySeverity: all returns everything", () => {
   const diags = [
-    { severity: 1, message: "error", range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } } },
-    { severity: 2, message: "warning", range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } } },
-    { severity: 3, message: "info", range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } } },
-    { severity: 4, message: "hint", range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } } },
+    {
+      severity: 1,
+      message: "error",
+      range: {
+        start: { line: 0, character: 0 },
+        end: { line: 0, character: 0 },
+      },
+    },
+    {
+      severity: 2,
+      message: "warning",
+      range: {
+        start: { line: 0, character: 0 },
+        end: { line: 0, character: 0 },
+      },
+    },
+    {
+      severity: 3,
+      message: "info",
+      range: {
+        start: { line: 0, character: 0 },
+        end: { line: 0, character: 0 },
+      },
+    },
+    {
+      severity: 4,
+      message: "hint",
+      range: {
+        start: { line: 0, character: 0 },
+        end: { line: 0, character: 0 },
+      },
+    },
   ];
   const result = filterDiagnosticsBySeverity(diags as any, "all");
   assertEqual(result.length, 4);
@@ -173,8 +318,22 @@ test("filterDiagnosticsBySeverity: all returns everything", () => {
 
 test("filterDiagnosticsBySeverity: error returns only errors", () => {
   const diags = [
-    { severity: 1, message: "error", range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } } },
-    { severity: 2, message: "warning", range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } } },
+    {
+      severity: 1,
+      message: "error",
+      range: {
+        start: { line: 0, character: 0 },
+        end: { line: 0, character: 0 },
+      },
+    },
+    {
+      severity: 2,
+      message: "warning",
+      range: {
+        start: { line: 0, character: 0 },
+        end: { line: 0, character: 0 },
+      },
+    },
   ];
   const result = filterDiagnosticsBySeverity(diags as any, "error");
   assertEqual(result.length, 1);
@@ -183,9 +342,30 @@ test("filterDiagnosticsBySeverity: error returns only errors", () => {
 
 test("filterDiagnosticsBySeverity: warning returns errors and warnings", () => {
   const diags = [
-    { severity: 1, message: "error", range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } } },
-    { severity: 2, message: "warning", range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } } },
-    { severity: 3, message: "info", range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } } },
+    {
+      severity: 1,
+      message: "error",
+      range: {
+        start: { line: 0, character: 0 },
+        end: { line: 0, character: 0 },
+      },
+    },
+    {
+      severity: 2,
+      message: "warning",
+      range: {
+        start: { line: 0, character: 0 },
+        end: { line: 0, character: 0 },
+      },
+    },
+    {
+      severity: 3,
+      message: "info",
+      range: {
+        start: { line: 0, character: 0 },
+        end: { line: 0, character: 0 },
+      },
+    },
   ];
   const result = filterDiagnosticsBySeverity(diags as any, "warning");
   assertEqual(result.length, 2);
@@ -193,10 +373,38 @@ test("filterDiagnosticsBySeverity: warning returns errors and warnings", () => {
 
 test("filterDiagnosticsBySeverity: info returns errors, warnings, and info", () => {
   const diags = [
-    { severity: 1, message: "error", range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } } },
-    { severity: 2, message: "warning", range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } } },
-    { severity: 3, message: "info", range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } } },
-    { severity: 4, message: "hint", range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } } },
+    {
+      severity: 1,
+      message: "error",
+      range: {
+        start: { line: 0, character: 0 },
+        end: { line: 0, character: 0 },
+      },
+    },
+    {
+      severity: 2,
+      message: "warning",
+      range: {
+        start: { line: 0, character: 0 },
+        end: { line: 0, character: 0 },
+      },
+    },
+    {
+      severity: 3,
+      message: "info",
+      range: {
+        start: { line: 0, character: 0 },
+        end: { line: 0, character: 0 },
+      },
+    },
+    {
+      severity: 4,
+      message: "hint",
+      range: {
+        start: { line: 0, character: 0 },
+        end: { line: 0, character: 0 },
+      },
+    },
   ];
   const result = filterDiagnosticsBySeverity(diags as any, "info");
   assertEqual(result.length, 3);
@@ -209,7 +417,19 @@ test("filterDiagnosticsBySeverity: info returns errors, warnings, and info", () 
 test("collectSymbols: uses selectionRange start for reported position", () => {
   // selectionRange.start (character 5) differs from range.start (character 0)
   const symbols = [
-    { name: "foo", kind: 12, range: { start: { line: 0, character: 0 }, end: { line: 2, character: 0 } }, selectionRange: { start: { line: 0, character: 5 }, end: { line: 0, character: 8 } }, children: [] },
+    {
+      name: "foo",
+      kind: 12,
+      range: {
+        start: { line: 0, character: 0 },
+        end: { line: 2, character: 0 },
+      },
+      selectionRange: {
+        start: { line: 0, character: 5 },
+        end: { line: 0, character: 8 },
+      },
+      children: [],
+    },
   ];
   const lines = collectSymbols(symbols as any);
   assertEqual(lines[0], "foo (1:6)");
@@ -217,7 +437,15 @@ test("collectSymbols: uses selectionRange start for reported position", () => {
 
 test("collectSymbols: falls back to range when selectionRange is absent", () => {
   const symbols = [
-    { name: "foo", kind: 12, range: { start: { line: 0, character: 3 }, end: { line: 0, character: 6 } }, children: [] },
+    {
+      name: "foo",
+      kind: 12,
+      range: {
+        start: { line: 0, character: 3 },
+        end: { line: 0, character: 6 },
+      },
+      children: [],
+    },
   ];
   const lines = collectSymbols(symbols as any);
   assertEqual(lines[0], "foo (1:4)");
@@ -225,7 +453,19 @@ test("collectSymbols: falls back to range when selectionRange is absent", () => 
 
 test("collectSymbols: converts 0-indexed positions to 1-indexed", () => {
   const symbols = [
-    { name: "foo", kind: 12, range: { start: { line: 4, character: 0 }, end: { line: 4, character: 3 } }, selectionRange: { start: { line: 4, character: 0 }, end: { line: 4, character: 3 } }, children: [] },
+    {
+      name: "foo",
+      kind: 12,
+      range: {
+        start: { line: 4, character: 0 },
+        end: { line: 4, character: 3 },
+      },
+      selectionRange: {
+        start: { line: 4, character: 0 },
+        end: { line: 4, character: 3 },
+      },
+      children: [],
+    },
   ];
   const lines = collectSymbols(symbols as any);
   assertEqual(lines[0], "foo (5:1)");
@@ -233,8 +473,32 @@ test("collectSymbols: converts 0-indexed positions to 1-indexed", () => {
 
 test("collectSymbols: formats multiple symbols in order", () => {
   const symbols = [
-    { name: "bar", kind: 12, range: { start: { line: 0, character: 0 }, end: { line: 0, character: 3 } }, selectionRange: { start: { line: 0, character: 0 }, end: { line: 0, character: 3 } }, children: [] },
-    { name: "baz", kind: 12, range: { start: { line: 5, character: 0 }, end: { line: 5, character: 3 } }, selectionRange: { start: { line: 5, character: 0 }, end: { line: 5, character: 3 } }, children: [] },
+    {
+      name: "bar",
+      kind: 12,
+      range: {
+        start: { line: 0, character: 0 },
+        end: { line: 0, character: 3 },
+      },
+      selectionRange: {
+        start: { line: 0, character: 0 },
+        end: { line: 0, character: 3 },
+      },
+      children: [],
+    },
+    {
+      name: "baz",
+      kind: 12,
+      range: {
+        start: { line: 5, character: 0 },
+        end: { line: 5, character: 3 },
+      },
+      selectionRange: {
+        start: { line: 5, character: 0 },
+        end: { line: 5, character: 3 },
+      },
+      children: [],
+    },
   ];
   const lines = collectSymbols(symbols as any);
   assertEqual(lines.length, 2);
@@ -244,9 +508,45 @@ test("collectSymbols: formats multiple symbols in order", () => {
 
 test("collectSymbols: filters by query (case-insensitive)", () => {
   const symbols = [
-    { name: "foo", kind: 12, range: { start: { line: 0, character: 0 }, end: { line: 0, character: 3 } }, selectionRange: { start: { line: 0, character: 0 }, end: { line: 0, character: 3 } }, children: [] },
-    { name: "fooBar", kind: 12, range: { start: { line: 1, character: 0 }, end: { line: 1, character: 6 } }, selectionRange: { start: { line: 1, character: 0 }, end: { line: 1, character: 6 } }, children: [] },
-    { name: "baz", kind: 12, range: { start: { line: 2, character: 0 }, end: { line: 2, character: 3 } }, selectionRange: { start: { line: 2, character: 0 }, end: { line: 2, character: 3 } }, children: [] },
+    {
+      name: "foo",
+      kind: 12,
+      range: {
+        start: { line: 0, character: 0 },
+        end: { line: 0, character: 3 },
+      },
+      selectionRange: {
+        start: { line: 0, character: 0 },
+        end: { line: 0, character: 3 },
+      },
+      children: [],
+    },
+    {
+      name: "fooBar",
+      kind: 12,
+      range: {
+        start: { line: 1, character: 0 },
+        end: { line: 1, character: 6 },
+      },
+      selectionRange: {
+        start: { line: 1, character: 0 },
+        end: { line: 1, character: 6 },
+      },
+      children: [],
+    },
+    {
+      name: "baz",
+      kind: 12,
+      range: {
+        start: { line: 2, character: 0 },
+        end: { line: 2, character: 3 },
+      },
+      selectionRange: {
+        start: { line: 2, character: 0 },
+        end: { line: 2, character: 3 },
+      },
+      children: [],
+    },
   ];
   const lines = collectSymbols(symbols as any, 0, [], "FOO");
   assertEqual(lines.length, 2);
@@ -257,11 +557,30 @@ test("collectSymbols: filters by query (case-insensitive)", () => {
 test("collectSymbols: recurses into children with indentation", () => {
   const symbols = [
     {
-      name: "MyStruct", kind: 23,
-      range: { start: { line: 0, character: 0 }, end: { line: 5, character: 0 } },
-      selectionRange: { start: { line: 0, character: 0 }, end: { line: 0, character: 8 } },
+      name: "MyStruct",
+      kind: 23,
+      range: {
+        start: { line: 0, character: 0 },
+        end: { line: 5, character: 0 },
+      },
+      selectionRange: {
+        start: { line: 0, character: 0 },
+        end: { line: 0, character: 8 },
+      },
       children: [
-        { name: "field", kind: 8, range: { start: { line: 1, character: 2 }, end: { line: 1, character: 7 } }, selectionRange: { start: { line: 1, character: 2 }, end: { line: 1, character: 7 } }, children: [] },
+        {
+          name: "field",
+          kind: 8,
+          range: {
+            start: { line: 1, character: 2 },
+            end: { line: 1, character: 7 },
+          },
+          selectionRange: {
+            start: { line: 1, character: 2 },
+            end: { line: 1, character: 7 },
+          },
+          children: [],
+        },
       ],
     },
   ];
