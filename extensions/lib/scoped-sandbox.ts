@@ -90,7 +90,11 @@ export class ScopedSandbox {
     let currentArgs: string[] = [];
 
     for (const token of parsed) {
-      if (typeof token === "string") {
+      if (
+        typeof token === "string" &&
+        // Not an env var
+        !/^[a-zA-Z_][a-zA-Z0-9_]*=/.test(token)
+      ) {
         currentArgs.push(token);
       } else if (typeof token === "object" && token !== null && "op" in token) {
         if (currentArgs.length > 0) {
