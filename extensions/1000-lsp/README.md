@@ -16,7 +16,7 @@ Forked from MIT licensed https://github.com/prateekmedia/pi-hooks/tree/61b92fa22
 
 | Language              | Server                       | Detection                                                |
 | --------------------- | ---------------------------- | -------------------------------------------------------- |
-| TypeScript/JavaScript | `typescript-language-server` | `package.json`, `tsconfig.json`                          |
+| TypeScript/JavaScript | `vtsls` | `package.json`, `tsconfig.json`                          |
 | Vue                   | `vue-language-server`        | `package.json`, `vite.config.ts`                         |
 | Svelte                | `svelteserver`               | `svelte.config.js`                                       |
 | Dart/Flutter          | `dart language-server`       | `pubspec.yaml`                                           |
@@ -49,7 +49,7 @@ Install the language servers you need:
 
 ```bash
 # TypeScript/JavaScript
-npm i -g typescript-language-server typescript
+npm i -g vtsls typescript
 
 # Vue
 npm i -g @vue/language-server

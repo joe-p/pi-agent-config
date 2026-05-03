@@ -71,8 +71,8 @@ function commandExists(cmd: string): boolean {
 // ============================================================================
 
 test("typescript: detects type errors", async () => {
-  if (!commandExists("typescript-language-server")) {
-    skip("typescript-language-server not installed");
+  if (!commandExists("vtsls")) {
+    skip("vtsls not installed");
   }
 
   const dir = await mkdtemp(join(tmpdir(), "lsp-ts-"));
@@ -110,8 +110,8 @@ test("typescript: detects type errors", async () => {
 });
 
 test("typescript: valid code has no errors", async () => {
-  if (!commandExists("typescript-language-server")) {
-    skip("typescript-language-server not installed");
+  if (!commandExists("vtsls")) {
+    skip("vtsls not installed");
   }
 
   const dir = await mkdtemp(join(tmpdir(), "lsp-ts-"));
@@ -529,8 +529,8 @@ result = greet(x)
 // ============================================================================
 
 test("typescript: rename symbol", async () => {
-  if (!commandExists("typescript-language-server")) {
-    skip("typescript-language-server not installed");
+  if (!commandExists("vtsls")) {
+    skip("vtsls not installed");
   }
 
   const dir = await mkdtemp(join(tmpdir(), "lsp-ts-rename-"));
@@ -595,8 +595,8 @@ const result = greet("world");
 // ============================================================================
 
 test("typescript: get code actions for error", async () => {
-  if (!commandExists("typescript-language-server")) {
-    skip("typescript-language-server not installed");
+  if (!commandExists("vtsls")) {
+    skip("vtsls not installed");
   }
 
   const dir = await mkdtemp(join(tmpdir(), "lsp-ts-actions-"));
@@ -635,8 +635,8 @@ console.log(x);
 });
 
 test("typescript: code actions for missing function", async () => {
-  if (!commandExists("typescript-language-server")) {
-    skip("typescript-language-server not installed");
+  if (!commandExists("vtsls")) {
+    skip("vtsls not installed");
   }
 
   const dir = await mkdtemp(join(tmpdir(), "lsp-ts-actions2-"));

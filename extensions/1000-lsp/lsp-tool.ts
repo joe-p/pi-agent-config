@@ -8,7 +8,7 @@
  *
  * Supported languages:
  *   - Dart/Flutter (dart language-server)
- *   - TypeScript/JavaScript (typescript-language-server)
+ *   - TypeScript/JavaScript (vtsls)
  *   - Vue (vue-language-server)
  *   - Svelte (svelteserver)
  *   - Python (pyright-langserver)
