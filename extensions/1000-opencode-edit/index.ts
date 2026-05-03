@@ -102,12 +102,8 @@ async function diffLines(oldContent: string, newContent: string) {
 }
 
 export default function (pi: ExtensionAPI) {
-  pi.on("session_start", (_, _ctx: ExtensionContext) => {
-    pi.setActiveTools(pi.getActiveTools().filter((t) => t !== "edit"));
-  });
-
   pi.registerTool({
-    name: "file_edit",
+    name: "edit",
     label: "Edit",
     description: DESC,
     parameters: Type.Object({
