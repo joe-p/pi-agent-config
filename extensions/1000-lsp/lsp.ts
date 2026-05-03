@@ -607,7 +607,14 @@ export default function (pi: ExtensionAPI) {
       }
 
       if (touchedFiles.size === 0) return;
-      if (!ctx.isIdle() || ctx.hasPendingMessages()) return;
+
+      const active = () => {
+        return !ctx.isIdle() || ctx.hasPendingMessages();
+      };
+
+      // If we're not yet idle, wait 500ms to see if that changes
+      if (active()) await new Promise((resolve) => setTimeout(resolve, 500));
+      if (active()) return;
 
       const abort = new AbortController();
       diagnosticsAbort?.abort();
