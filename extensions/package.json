@@ -22,8 +22,10 @@
     "typebox": "^1.1.33"
   },
   "devDependencies": {
+    "@types/jsdom": "^28.0.1",
     "@types/node": "^20.19.39",
     "@types/shell-quote": "^1.7.5",
+    "@types/turndown": "^5.0.6",
     "prettier": "^3.8.3",
     "typescript": "^5.9.3",
     "vitest": "^4.1.4"
