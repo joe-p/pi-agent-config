@@ -70,6 +70,7 @@ export const LANGUAGE_IDS: Record<string, string> = {
   ".kt": "kotlin",
   ".kts": "kotlin",
   ".swift": "swift",
+  ".lua": "lua",
 };
 
 // Types
@@ -596,6 +597,37 @@ export const LSP_SERVERS: LSPServerConfig[] = [
     findRoot: (f, cwd) => findRoot(f, cwd, ["Cargo.toml"]),
     spawn: simpleSpawn("rust-analyzer", []),
   },
+  {
+    id: "lua-language-server",
+    extensions: [".lua"],
+    findRoot: (f, cwd) =>
+      findRoot(f, cwd, [
+        ".luarc.json",
+        ".luarc.jsonc",
+        ".emmyrc.json",
+        ".luacheckrc",
+        ".stylua.toml",
+        "stylua.toml",
+        "selene.toml",
+        "selene.yml",
+      ]) || findRoot(f, cwd, [".git"]),
+    spawn: async (root) => {
+      const cmd = which("lua-language-server");
+      if (!cmd) return undefined;
+      return {
+        process: spawn(cmd, ["--stdio"], {
+          cwd: root,
+          stdio: ["pipe", "pipe", "pipe"],
+        }),
+        initOptions: {
+          Lua: {
+            codeLens: { enable: true },
+            hint: { enable: true, semicolon: "Disable" },
+          },
+        },
+      };
+    },
+  },
 ];
 
 // Singleton Manager
@@ -884,6 +916,27 @@ export class LSPManager {
 
   private explainNoLsp(absPath: string): string {
     const ext = path.extname(absPath);
+
+    if (ext === ".lua") {
+      const root = findRoot(absPath, this.cwd, [
+        ".luarc.json",
+        ".luarc.jsonc",
+        ".emmyrc.json",
+        ".luacheckrc",
+        ".stylua.toml",
+        "stylua.toml",
+        "selene.toml",
+        "selene.yml",
+      ]) || findRoot(absPath, this.cwd, [".git"]);
+      if (!root)
+        return `No Lua project root detected (looked for .luarc.json, .luarc.jsonc, .emmyrc.json, .luacheckrc, .stylua.toml, selene.toml, selene.yml, or .git under cwd)`;
+      if (!which("lua-language-server"))
+        return "lua-language-server not found in PATH";
+      const k = this.key("lua-language-server", root);
+      if (this.broken.has(k))
+        return `Lua language server failed to initialize for root: ${root}`;
+      return `Lua LSP unavailable for root: ${root}`;
+    }
 
     if (ext === ".kt" || ext === ".kts") {
       const root = findRootKotlin(absPath, this.cwd);
