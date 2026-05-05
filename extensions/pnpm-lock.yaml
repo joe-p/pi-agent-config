@@ -32,6 +32,9 @@ importers:
       jsdom:
         specifier: ^29.0.2
         version: 29.0.2
+      minimatch:
+        specifier: ^10.2.5
+        version: 10.2.5
       shell-quote:
         specifier: ^1.8.3
         version: 1.8.3
