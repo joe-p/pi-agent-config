@@ -5,6 +5,12 @@ import {
   ScopedSandbox,
 } from "./lib/scoped-sandbox";
 import { PiSandbox } from "./lib/pi-sandbox";
+import path from "node:path";
+import { homedir } from "node:os";
+
+if (path.resolve(process.cwd()) === path.resolve(homedir())) {
+  throw Error("Running pi in your home directory is dangerous!");
+}
 
 /** Rules that are ALWAYS enforced */
 const MANDATORY_CONFIG: NetworkAndFsConfig = {
@@ -17,9 +23,12 @@ const MANDATORY_CONFIG: NetworkAndFsConfig = {
     // like .env and .pem files. Unfortunately, this makes it really hard to use tools because they
     // often implicitly read these things (for example, Python reads .pem certs from the .venv for TLS)
     // Because we are allowing read on potentially secret data, being strict about network access becomes even more important
-    denyRead: ["~/.ssh"],
+    //
+    // The gitleaks extension also adds an extra layer of protection to prevent secret leaking
+    denyRead: [],
     allowWrite: [],
-    denyWrite: ["**/.git", "**/.env"],
+    skipMandatoryDenyPatterns: true,
+    denyWrite: ["**/.git", "**/.env", "**/.gitmodules"],
   },
 };
 
@@ -30,6 +39,7 @@ const sandboxes = {
       runtimeConfig: {
         ...emptyRuntimeConfig(),
         filesystem: {
+          allowRead: [],
           denyRead: [],
           allowWrite: ["."],
           denyWrite: [],
@@ -43,6 +53,12 @@ const sandboxes = {
       alwayDenyWithMessage: false,
       runtimeConfig: {
         ...emptyRuntimeConfig(),
+        filesystem: {
+          allowRead: [],
+          denyRead: [],
+          allowWrite: [],
+          denyWrite: [],
+        },
       },
     },
     MANDATORY_CONFIG,
@@ -81,11 +97,6 @@ jsPackageManagers.forEach((pm) => {
       },
       runtimeConfig: {
         filesystem: {
-          // SRT has protections against specific directories/files such as .vscode, .gitmodules
-          // This is problematic for npm (and likely other package managers) because some packages
-          // include these directories in their bundle. We are still explicitly blocking writes to
-          // .git so we should be safe.
-          skipMandatoryDenyPatterns: true,
           // TODO: further restrict to only allow read/writes on package.json, node_modules, and lock file.
           // This will require logic to find the package.json and/or node_modules
           allowWrite: ["."],
