@@ -1,0 +1,24 @@
+title = "Pi gitleaks Config"
+
+# Extend the default Gitleaks rules so this config adds detection on top of
+# the ~150 built-in rules instead of replacing them.
+[extend]
+useDefault = true
+
+[[rules]]
+id          = "openrouter-api-key"
+description = "OpenRouter API key (sk-or-v1-<64 hex>)"
+# `\b` is word-boundary anchored on both ends so we don't grab a longer hex
+# blob that just happens to start with the prefix.
+regex       = '''\b(sk-or-v1-[0-9a-f]{64})\b'''
+# Group 1 is the full key; that's also what we want as the "secret" for
+# entropy + reporting. Without this Gitleaks reports the whole match as the
+# secret, which is fine here since the match IS the key, but being explicit
+# is good practice.
+secretGroup = 1
+
+# Pre-filter: Gitleaks only runs the regex on content that contains at least
+# one of these keywords. Cheap substring check, big speedup.
+keywords    = ["sk-or-v1-"]
+tags        = ["key", "openrouter", "ai"]
+
