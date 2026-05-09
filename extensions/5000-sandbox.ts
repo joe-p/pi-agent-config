@@ -39,7 +39,7 @@ const sandboxes = {
       runtimeConfig: {
         ...emptyRuntimeConfig(),
         filesystem: {
-          allowRead: [],
+          allowRead: ["."],
           denyRead: [],
           allowWrite: ["."],
           denyWrite: [],
@@ -54,7 +54,7 @@ const sandboxes = {
       runtimeConfig: {
         ...emptyRuntimeConfig(),
         filesystem: {
-          allowRead: [],
+          allowRead: ["."],
           denyRead: [],
           allowWrite: [],
           denyWrite: [],
