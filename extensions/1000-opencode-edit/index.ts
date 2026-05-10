@@ -15,91 +15,9 @@ import {
   convertToLineEnding,
 } from "./replace";
 import { readFileSync } from "node:fs";
+import { createTwoFilesPatch, diffLines } from "diff";
 
 const DESC = readFileSync(path.join(__dirname, "description.md"), "utf-8");
-
-async function createTwoFilesPatch(
-  oldFileName: string,
-  newFileName: string,
-  oldContent: string,
-  newContent: string,
-): Promise<string> {
-  // Simple unified diff generator
-  const oldLines = oldContent.split("\n");
-  const newLines = newContent.split("\n");
-
-  let diff = `--- ${oldFileName}\n+++ ${newFileName}\n`;
-
-  // Find changes (simplified - just show the whole file as changed)
-  // A proper diff algorithm would be much more complex
-  let i = 0;
-  let j = 0;
-
-  while (i < oldLines.length || j < newLines.length) {
-    if (
-      i < oldLines.length &&
-      j < newLines.length &&
-      oldLines[i] === newLines[j]
-    ) {
-      // Lines match
-      diff += ` ${oldLines[i]}\n`;
-      i++;
-      j++;
-    } else {
-      // Look for changes
-      const oldLine = i < oldLines.length ? oldLines[i] : undefined;
-      const newLine = j < newLines.length ? newLines[j] : undefined;
-
-      if (oldLine !== undefined) {
-        diff += `-${oldLine}\n`;
-        i++;
-      }
-      if (newLine !== undefined) {
-        diff += `+${newLine}\n`;
-        j++;
-      }
-    }
-  }
-
-  return diff;
-}
-
-async function diffLines(oldContent: string, newContent: string) {
-  const result: Array<{
-    added?: boolean;
-    removed?: boolean;
-    value: string;
-    count?: number;
-  }> = [];
-  const oldLines = oldContent.split("\n");
-  const newLines = newContent.split("\n");
-
-  let i = 0;
-  let j = 0;
-
-  while (i < oldLines.length || j < newLines.length) {
-    if (
-      i < oldLines.length &&
-      j < newLines.length &&
-      oldLines[i] === newLines[j]
-    ) {
-      result.push({ value: oldLines[i]!, count: 1 });
-      i++;
-      j++;
-    } else {
-      if (i < oldLines.length) {
-        result.push({ removed: true, value: oldLines[i]!, count: 1 });
-        i++;
-      }
-      if (j < newLines.length) {
-        result.push({ added: true, value: newLines[j]!, count: 1 });
-        j++;
-      }
-    }
-  }
-
-  return result;
-}
 
 export default function (pi: ExtensionAPI) {
   pi.registerTool({
@@ -168,12 +86,7 @@ export default function (pi: ExtensionAPI) {
           contentOld = source.text;
           contentNew = params.newString;
           diff = trimDiff(
-            await createTwoFilesPatch(
-              filePath,
-              filePath,
-              contentOld,
-              contentNew,
-            ),
+            createTwoFilesPatch(filePath, filePath, contentOld, contentNew),
           );
 
           await writeWithDirs(filePath, contentNew);
@@ -211,7 +124,7 @@ export default function (pi: ExtensionAPI) {
           );
 
           diff = trimDiff(
-            await createTwoFilesPatch(
+            createTwoFilesPatch(
               filePath,
               filePath,
               normalizeLineEndings(contentOld),
@@ -223,7 +136,7 @@ export default function (pi: ExtensionAPI) {
 
           // Recalculate diff after write (in case line endings change)
           diff = trimDiff(
-            await createTwoFilesPatch(
+            createTwoFilesPatch(
               filePath,
               filePath,
               normalizeLineEndings(contentOld),
@@ -235,7 +148,7 @@ export default function (pi: ExtensionAPI) {
         // Calculate additions and deletions
         let additions = 0;
         let deletions = 0;
-        const changes = await diffLines(contentOld, contentNew);
+        const changes = diffLines(contentOld, contentNew);
         for (const change of changes) {
           if (change.added) additions += change.count || 0;
           if (change.removed) deletions += change.count || 0;

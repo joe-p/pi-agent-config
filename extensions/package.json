@@ -15,6 +15,7 @@
     "@mariozechner/pi-tui": "^0.69.0",
     "@mozilla/readability": "^0.6.0",
     "@napi-rs/keyring": "^1.2.0",
+    "diff": "^9.0.0",
     "jsdom": "^29.0.2",
     "minimatch": "^10.2.5",
     "shell-quote": "^1.8.3",
