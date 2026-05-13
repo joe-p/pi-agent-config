@@ -1,7 +1,6 @@
 /*
  * Based on https://github.com/badlogic/pi-skills/tree/c7a11cfd441401eacd49b89d41c631e1b79ef6bc/brave-search
  */
-import { Entry } from "@napi-rs/keyring";
 import Type from "typebox";
 import {
   ExtensionAPI,
@@ -23,18 +22,17 @@ import TurndownService from "turndown";
 
 // @ts-expect-error no types for this package
 import { gfm } from "turndown-plugin-gfm";
+import { getOrPromptForKey } from "./1000-keyring";
 
-const SERVICE = "pi-coding-agent";
 const USERNAME = "skills/brave-search";
 
-export const entry = new Entry(SERVICE, USERNAME);
-
 async function fetchBraveResults(
+  ctx: ExtensionContext,
   query: string,
   numResults?: number,
   freshness?: string,
 ) {
-  const apiKey = entry.getPassword();
+  const apiKey = await getOrPromptForKey(ctx, USERNAME);
   if (apiKey === null) {
     throw Error("NO API KEY!");
   }
@@ -204,8 +202,12 @@ export default function (pi: ExtensionAPI) {
       ),
     }),
 
-    async execute(_toolCallId, params, _signal, _onUpdate, _ctx) {
-      const results = await fetchBraveResults(params.query, params.numResults);
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      const results = await fetchBraveResults(
+        ctx,
+        params.query,
+        params.numResults,
+      );
       return {
         content: [{ type: "text", text: results }],
         details: { query: params.query, results },
