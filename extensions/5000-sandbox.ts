@@ -143,6 +143,27 @@ sandbox.addConfig("both", "uv", {
   },
 });
 
+sandbox.addConfig("both", "go", {
+  alwayDenyWithMessage: false,
+  runtimeConfig: {
+    network: {
+      allowLocalBinding: true,
+      allowedDomains: ["github.com"],
+      deniedDomains: [],
+    },
+    filesystem: {
+      allowWrite: [
+        "~/.cache/go-build/",
+        "~/.cache/goimports/",
+        "~/.cache/gopls/",
+        "~/go",
+      ],
+      denyRead: [],
+      denyWrite: [],
+    },
+  },
+});
+
 export default function (pi: ExtensionAPI) {
   sandbox.setupExtension(pi);
 }
